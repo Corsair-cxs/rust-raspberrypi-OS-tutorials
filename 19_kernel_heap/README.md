@@ -280,7 +280,7 @@ diff -uNr 18_backtrace/kernel/Cargo.toml 19_kernel_heap/kernel/Cargo.toml
  [dependencies]
  test-types = { path = "../libraries/test-types" }
  debug-symbol-types = { path = "../libraries/debug-symbol-types" }
-+linked_list_allocator = { version = "0.9.x", default-features = false, features = ["const_mut_refs"] }
++linked_list_allocator = { version = "0.10.x", default-features = false, features = ["const_mut_refs"] }
 
  # Optional dependencies
  tock-registers = { version = "0.7.x", default-features = false, features = ["register_types"], optional = true }
@@ -1043,9 +1043,9 @@ diff -uNr 18_backtrace/kernel/src/memory/heap_alloc.rs 19_kernel_heap/kernel/src
 +pub fn kernel_init_heap_allocator() {
 +    let region = bsp::memory::mmu::virt_heap_region();
 +
-+    KERNEL_HEAP_ALLOCATOR
-+        .inner
-+        .lock(|inner| unsafe { inner.init(region.start_addr().as_usize(), region.size()) });
++    KERNEL_HEAP_ALLOCATOR.inner.lock(|inner| unsafe {
++        inner.init(region.start_addr().as_usize() as *mut u8, region.size())
++    });
 +}
 
 diff -uNr 18_backtrace/kernel/src/memory/mmu/mapping_record.rs 19_kernel_heap/kernel/src/memory/mmu/mapping_record.rs
@@ -1090,7 +1090,7 @@ diff -uNr 18_backtrace/kernel/src/memory/mmu/mapping_record.rs 19_kernel_heap/ke
              phys_start_addr: phys_region.start_addr(),
              virt_start_addr: virt_region.start_addr(),
              num_pages: phys_region.num_pages(),
-@@ -56,55 +56,28 @@
+@@ -56,54 +56,28 @@
          }
      }
 
@@ -1146,12 +1146,11 @@ diff -uNr 18_backtrace/kernel/src/memory/mmu/mapping_record.rs 19_kernel_heap/ke
      ) -> Option<&mut MappingRecordEntry> {
          self.inner
              .iter_mut()
--            .filter(|x| x.is_some())
--            .map(|x| x.as_mut().unwrap())
+-            .filter_map(|x| x.as_mut())
              .filter(|x| x.attribute_fields.mem_attributes == MemAttributes::Device)
              .find(|x| {
                  if x.phys_start_addr != phys_region.start_addr() {
-@@ -125,10 +98,8 @@
+@@ -124,10 +98,8 @@
          virt_region: &MemoryRegion<Virtual>,
          phys_region: &MemoryRegion<Physical>,
          attr: &AttributeFields,
@@ -1164,7 +1163,7 @@ diff -uNr 18_backtrace/kernel/src/memory/mmu/mapping_record.rs 19_kernel_heap/ke
              name,
              virt_region,
              phys_region,
-@@ -136,8 +107,6 @@
+@@ -135,8 +107,6 @@
          ));
 
          self.sort();
@@ -1173,7 +1172,7 @@ diff -uNr 18_backtrace/kernel/src/memory/mmu/mapping_record.rs 19_kernel_heap/ke
      }
 
      pub fn print(&self) {
-@@ -148,7 +117,7 @@
+@@ -147,7 +117,7 @@
          );
          info!("      -------------------------------------------------------------------------------------------------------------------------------------------");
 
@@ -1182,7 +1181,7 @@ diff -uNr 18_backtrace/kernel/src/memory/mmu/mapping_record.rs 19_kernel_heap/ke
              let size = i.num_pages * bsp::memory::mmu::KernelGranule::SIZE;
              let virt_start = i.virt_start_addr;
              let virt_end_inclusive = virt_start + (size - 1);
-@@ -184,16 +153,14 @@
+@@ -183,16 +153,14 @@
                  attr,
                  acc_p,
                  xn,
@@ -1203,7 +1202,7 @@ diff -uNr 18_backtrace/kernel/src/memory/mmu/mapping_record.rs 19_kernel_heap/ke
              }
          }
 
-@@ -212,7 +179,7 @@
+@@ -211,7 +179,7 @@
      virt_region: &MemoryRegion<Virtual>,
      phys_region: &MemoryRegion<Physical>,
      attr: &AttributeFields,
@@ -1212,7 +1211,7 @@ diff -uNr 18_backtrace/kernel/src/memory/mmu/mapping_record.rs 19_kernel_heap/ke
      KERNEL_MAPPING_RECORD.write(|mr| mr.add(name, virt_region, phys_region, attr))
  }
 
-@@ -225,9 +192,7 @@
+@@ -224,9 +192,7 @@
      KERNEL_MAPPING_RECORD.write(|mr| {
          let dup = mr.find_duplicate(&phys_region)?;
 
