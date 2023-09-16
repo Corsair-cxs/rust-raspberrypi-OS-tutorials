@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //
-// Copyright (c) 2019-2022 Andre Richter <andre.o.richter@gmail.com>
+// Copyright (c) 2019-2023 Andre Richter <andre.o.richter@gmail.com>
 
 //! Timer sanity tests.
 
@@ -11,16 +11,14 @@
 #![test_runner(libkernel::test_runner)]
 
 use core::time::Duration;
-use libkernel::{bsp, cpu, driver, exception, memory, time, time::interface::TimeManager};
+use libkernel::{bsp, cpu, exception, memory, time};
 use test_macros::kernel_test;
 
 #[no_mangle]
 unsafe fn kernel_init() -> ! {
-    use driver::interface::DriverManager;
-
     exception::handling_init();
     memory::init();
-    bsp::driver::driver_manager().qemu_bring_up_console();
+    bsp::driver::qemu_bring_up_console();
 
     // Depending on CPU arch, some timer bring-up code could go here. Not needed for the RPi.
 
@@ -38,6 +36,7 @@ fn timer_is_counting() {
 /// Timer resolution must be sufficient.
 #[kernel_test]
 fn timer_resolution_is_sufficient() {
+    assert!(time::time_manager().resolution().as_nanos() > 0);
     assert!(time::time_manager().resolution().as_nanos() < 100)
 }
 

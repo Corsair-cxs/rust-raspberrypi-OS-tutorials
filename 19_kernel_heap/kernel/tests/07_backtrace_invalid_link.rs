@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //
-// Copyright (c) 2022 Andre Richter <andre.o.richter@gmail.com>
+// Copyright (c) 2022-2023 Andre Richter <andre.o.richter@gmail.com>
 
 //! Test if backtracing code detects an invalid link.
 
@@ -11,7 +11,7 @@
 /// Console tests should time out on the I/O harness in case of panic.
 mod panic_wait_forever;
 
-use libkernel::{backtrace, bsp, cpu, driver, exception, memory};
+use libkernel::{backtrace, bsp, cpu, exception, memory};
 
 #[inline(never)]
 fn nested_2() -> &'static str {
@@ -27,11 +27,9 @@ fn nested_1() {
 
 #[no_mangle]
 unsafe fn kernel_init() -> ! {
-    use driver::interface::DriverManager;
-
     exception::handling_init();
     memory::init();
-    bsp::driver::driver_manager().qemu_bring_up_console();
+    bsp::driver::qemu_bring_up_console();
 
     nested_1();
 

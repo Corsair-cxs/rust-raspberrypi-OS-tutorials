@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //
-// Copyright (c) 2020-2022 Andre Richter <andre.o.richter@gmail.com>
+// Copyright (c) 2020-2023 Andre Richter <andre.o.richter@gmail.com>
 
 //! GICD Driver - GIC Distributor.
 //!
@@ -52,9 +52,9 @@ register_structs! {
         (0x004 => TYPER: ReadOnly<u32, TYPER::Register>),
         (0x008 => _reserved1),
         (0x104 => ISENABLER: [ReadWrite<u32>; 31]),
-        (0x108 => _reserved2),
+        (0x180 => _reserved2),
         (0x820 => ITARGETSR: [ReadWrite<u32, ITARGETSR::Register>; 248]),
-        (0x824 => @END),
+        (0xC00 => @END),
     }
 }
 
@@ -65,7 +65,7 @@ register_structs! {
         (0x100 => ISENABLER: ReadWrite<u32>),
         (0x104 => _reserved2),
         (0x800 => ITARGETSR: [ReadOnly<u32, ITARGETSR::Register>; 8]),
-        (0x804 => @END),
+        (0x820 => @END),
     }
 }
 
@@ -172,7 +172,7 @@ impl GICD {
     }
 
     /// Enable an interrupt.
-    pub fn enable(&self, irq_num: super::IRQNumber) {
+    pub fn enable(&self, irq_num: &super::IRQNumber) {
         let irq_num = irq_num.get();
 
         // Each bit in the u32 enable register corresponds to one IRQ number. Shift right by 5

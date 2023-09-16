@@ -53,7 +53,7 @@ diff -uNr 02_runtime_init/Cargo.toml 03_hacky_hello_world/Cargo.toml
 diff -uNr 02_runtime_init/Makefile 03_hacky_hello_world/Makefile
 --- 02_runtime_init/Makefile
 +++ 03_hacky_hello_world/Makefile
-@@ -24,7 +24,7 @@
+@@ -25,7 +25,7 @@
      KERNEL_BIN        = kernel8.img
      QEMU_BINARY       = qemu-system-aarch64
      QEMU_MACHINE_TYPE = raspi3
@@ -62,7 +62,7 @@ diff -uNr 02_runtime_init/Makefile 03_hacky_hello_world/Makefile
      OBJDUMP_BINARY    = aarch64-none-elf-objdump
      NM_BINARY         = aarch64-none-elf-nm
      READELF_BINARY    = aarch64-none-elf-readelf
-@@ -35,7 +35,7 @@
+@@ -36,7 +36,7 @@
      KERNEL_BIN        = kernel8.img
      QEMU_BINARY       = qemu-system-aarch64
      QEMU_MACHINE_TYPE =
@@ -71,7 +71,7 @@ diff -uNr 02_runtime_init/Makefile 03_hacky_hello_world/Makefile
      OBJDUMP_BINARY    = aarch64-none-elf-objdump
      NM_BINARY         = aarch64-none-elf-nm
      READELF_BINARY    = aarch64-none-elf-readelf
-@@ -85,17 +85,20 @@
+@@ -86,17 +86,20 @@
      --strip-all            \
      -O binary
 
@@ -95,7 +95,7 @@ diff -uNr 02_runtime_init/Makefile 03_hacky_hello_world/Makefile
 
 
 
-@@ -190,3 +193,27 @@
+@@ -191,3 +194,27 @@
  	$(call color_header, "Launching nm")
  	@$(DOCKER_TOOLS) $(NM_BINARY) --demangle --print-size $(KERNEL_ELF) | sort | rustfilt
 
@@ -130,7 +130,7 @@ diff -uNr 02_runtime_init/src/bsp/raspberrypi/console.rs 03_hacky_hello_world/sr
 @@ -0,0 +1,47 @@
 +// SPDX-License-Identifier: MIT OR Apache-2.0
 +//
-+// Copyright (c) 2018-2022 Andre Richter <andre.o.richter@gmail.com>
++// Copyright (c) 2018-2023 Andre Richter <andre.o.richter@gmail.com>
 +
 +//! BSP console facilities.
 +
@@ -192,7 +192,7 @@ diff -uNr 02_runtime_init/src/console.rs 03_hacky_hello_world/src/console.rs
 @@ -0,0 +1,32 @@
 +// SPDX-License-Identifier: MIT OR Apache-2.0
 +//
-+// Copyright (c) 2018-2022 Andre Richter <andre.o.richter@gmail.com>
++// Copyright (c) 2018-2023 Andre Richter <andre.o.richter@gmail.com>
 +
 +//! System console.
 +
@@ -327,7 +327,7 @@ diff -uNr 02_runtime_init/src/print.rs 03_hacky_hello_world/src/print.rs
 @@ -0,0 +1,38 @@
 +// SPDX-License-Identifier: MIT OR Apache-2.0
 +//
-+// Copyright (c) 2018-2022 Andre Richter <andre.o.richter@gmail.com>
++// Copyright (c) 2018-2023 Andre Richter <andre.o.richter@gmail.com>
 +
 +//! Printing.
 +

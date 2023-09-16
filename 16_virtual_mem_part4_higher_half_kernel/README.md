@@ -412,7 +412,7 @@ diff -uNr 15_virtual_mem_part3_precomputed_tables/kernel/src/_arch/aarch64/cpu/b
  //--------------------------------------------------------------------------------------------------
  // Public Code
  //--------------------------------------------------------------------------------------------------
-@@ -56,11 +68,23 @@
+@@ -56,19 +68,31 @@
  	// Load the base address of the kernel's translation tables.
  	ldr	x0, PHYS_KERNEL_TABLES_BASE_ADDR // provided by bsp/__board_name__/memory/mmu.rs
 
@@ -432,8 +432,20 @@ diff -uNr 15_virtual_mem_part3_precomputed_tables/kernel/src/_arch/aarch64/cpu/b
 +	// Setting the stack pointer to this value ensures that anything that still runs in EL2,
 +	// until the kernel returns to EL1 with the MMU enabled, works as well. After the return to
 +	// EL1, the virtual address of the stack retrieved above will be used.
-+	ADR_REL	x4, __boot_core_stack_end_exclusive
-+	mov	sp, x4
++	ADR_REL	x3, __boot_core_stack_end_exclusive
++	mov	sp, x3
+
+ 	// Read the CPU's timer counter frequency and store it in ARCH_TIMER_COUNTER_FREQUENCY.
+ 	// Abort if the frequency read back as 0.
+-	ADR_REL	x2, ARCH_TIMER_COUNTER_FREQUENCY // provided by aarch64/time.rs
+-	mrs	x3, CNTFRQ_EL0
+-	cmp	x3, xzr
++	ADR_REL	x4, ARCH_TIMER_COUNTER_FREQUENCY // provided by aarch64/time.rs
++	mrs	x5, CNTFRQ_EL0
++	cmp	x5, xzr
+ 	b.eq	.L_parking_loop
+-	str	w3, [x2]
++	str	w5, [x4]
 
 -	// Jump to Rust code. x0 and x1 hold the function arguments provided to _start_rust().
 +	// Jump to Rust code. x0, x1 and x2 hold the function arguments provided to _start_rust().
@@ -731,7 +743,7 @@ diff -uNr 15_virtual_mem_part3_precomputed_tables/kernel/src/bsp/raspberrypi/mem
 diff -uNr 15_virtual_mem_part3_precomputed_tables/kernel/src/lib.rs 16_virtual_mem_part4_higher_half_kernel/kernel/src/lib.rs
 --- 15_virtual_mem_part3_precomputed_tables/kernel/src/lib.rs
 +++ 16_virtual_mem_part4_higher_half_kernel/kernel/src/lib.rs
-@@ -154,11 +154,6 @@
+@@ -157,11 +157,6 @@
      )
  }
 
@@ -805,7 +817,7 @@ diff -uNr 15_virtual_mem_part3_precomputed_tables/kernel/src/memory/mmu.rs 16_vi
 diff -uNr 15_virtual_mem_part3_precomputed_tables/kernel/tests/02_exception_sync_page_fault.rs 16_virtual_mem_part4_higher_half_kernel/kernel/tests/02_exception_sync_page_fault.rs
 --- 15_virtual_mem_part3_precomputed_tables/kernel/tests/02_exception_sync_page_fault.rs
 +++ 16_virtual_mem_part4_higher_half_kernel/kernel/tests/02_exception_sync_page_fault.rs
-@@ -30,8 +30,8 @@
+@@ -28,8 +28,8 @@
      // This line will be printed as the test header.
      println!("Testing synchronous exception handling by causing a page fault");
 

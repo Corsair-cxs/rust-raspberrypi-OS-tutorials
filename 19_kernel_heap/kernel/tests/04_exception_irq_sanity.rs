@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //
-// Copyright (c) 2020-2022 Andre Richter <andre.o.richter@gmail.com>
+// Copyright (c) 2020-2023 Andre Richter <andre.o.richter@gmail.com>
 
 //! IRQ handling sanity tests.
 
@@ -10,15 +10,13 @@
 #![reexport_test_harness_main = "test_main"]
 #![test_runner(libkernel::test_runner)]
 
-use libkernel::{bsp, cpu, driver, exception, memory};
+use libkernel::{bsp, cpu, exception, memory};
 use test_macros::kernel_test;
 
 #[no_mangle]
 unsafe fn kernel_init() -> ! {
-    use driver::interface::DriverManager;
-
     memory::init();
-    bsp::driver::driver_manager().qemu_bring_up_console();
+    bsp::driver::qemu_bring_up_console();
 
     exception::handling_init();
     exception::asynchronous::local_irq_unmask();

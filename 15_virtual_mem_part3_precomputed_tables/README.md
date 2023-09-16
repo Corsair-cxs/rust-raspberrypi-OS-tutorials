@@ -637,7 +637,7 @@ def kernel_map_binary
     mapping_descriptors.each do |i|
         print 'Generating'.rjust(12).green.bold
         print ' '
-        puts i.to_s
+        puts i
 
         TRANSLATION_TABLES.map_at(i.virt_region, i.phys_region, i.attributes)
     end
@@ -816,8 +816,8 @@ diff -uNr 14_virtual_mem_part2_mmio_remap/kernel/src/_arch/aarch64/cpu/boot.rs 1
  //! crate::cpu::boot::arch_boot
 
 +use crate::{memory, memory::Address};
+ use aarch64_cpu::{asm, registers::*};
  use core::arch::global_asm;
- use cortex_a::{asm, registers::*};
  use tock_registers::interfaces::Writeable;
 @@ -75,9 +76,16 @@
  ///
@@ -841,7 +841,7 @@ diff -uNr 14_virtual_mem_part2_mmio_remap/kernel/src/_arch/aarch64/cpu/boot.rs 1
 diff -uNr 14_virtual_mem_part2_mmio_remap/kernel/src/_arch/aarch64/cpu/boot.s 15_virtual_mem_part3_precomputed_tables/kernel/src/_arch/aarch64/cpu/boot.s
 --- 14_virtual_mem_part2_mmio_remap/kernel/src/_arch/aarch64/cpu/boot.s
 +++ 15_virtual_mem_part3_precomputed_tables/kernel/src/_arch/aarch64/cpu/boot.s
-@@ -53,11 +53,14 @@
+@@ -53,19 +53,22 @@
 
  	// Prepare the jump to Rust code.
  .L_prepare_rust:
@@ -853,6 +853,18 @@ diff -uNr 14_virtual_mem_part2_mmio_remap/kernel/src/_arch/aarch64/cpu/boot.s 15
 -	mov	sp, x0
 +	ADR_REL	x1, __boot_core_stack_end_exclusive
 +	mov	sp, x1
+
+ 	// Read the CPU's timer counter frequency and store it in ARCH_TIMER_COUNTER_FREQUENCY.
+ 	// Abort if the frequency read back as 0.
+-	ADR_REL	x1, ARCH_TIMER_COUNTER_FREQUENCY // provided by aarch64/time.rs
+-	mrs	x2, CNTFRQ_EL0
+-	cmp	x2, xzr
++	ADR_REL	x2, ARCH_TIMER_COUNTER_FREQUENCY // provided by aarch64/time.rs
++	mrs	x3, CNTFRQ_EL0
++	cmp	x3, xzr
+ 	b.eq	.L_parking_loop
+-	str	w2, [x1]
++	str	w3, [x2]
 
 -	// Jump to Rust code. x0 holds the function argument provided to _start_rust().
 +	// Jump to Rust code. x0 and x1 hold the function arguments provided to _start_rust().
@@ -1069,7 +1081,7 @@ diff -uNr 14_virtual_mem_part2_mmio_remap/kernel/src/bsp/raspberrypi/kernel.ld 1
 --- 14_virtual_mem_part2_mmio_remap/kernel/src/bsp/raspberrypi/kernel.ld
 +++ 15_virtual_mem_part3_precomputed_tables/kernel/src/bsp/raspberrypi/kernel.ld
 @@ -3,6 +3,8 @@
-  * Copyright (c) 2018-2022 Andre Richter <andre.o.richter@gmail.com>
+  * Copyright (c) 2018-2023 Andre Richter <andre.o.richter@gmail.com>
   */
 
 +INCLUDE kernel_virt_addr_space_size.ld;
@@ -1324,9 +1336,9 @@ diff -uNr 14_virtual_mem_part2_mmio_remap/kernel/src/bsp/raspberrypi/memory/mmu.
 diff -uNr 14_virtual_mem_part2_mmio_remap/kernel/src/lib.rs 15_virtual_mem_part3_precomputed_tables/kernel/src/lib.rs
 --- 14_virtual_mem_part2_mmio_remap/kernel/src/lib.rs
 +++ 15_virtual_mem_part3_precomputed_tables/kernel/src/lib.rs
-@@ -186,17 +186,7 @@
-     use driver::interface::DriverManager;
-
+@@ -187,17 +187,7 @@
+ #[no_mangle]
+ unsafe fn kernel_init() -> ! {
      exception::handling_init();
 -
 -    let phys_kernel_tables_base_addr = match memory::mmu::kernel_map_binary() {
@@ -1340,14 +1352,14 @@ diff -uNr 14_virtual_mem_part2_mmio_remap/kernel/src/lib.rs 15_virtual_mem_part3
 -
 -    memory::mmu::post_enable_init();
 +    memory::init();
-     bsp::driver::driver_manager().qemu_bring_up_console();
+     bsp::driver::qemu_bring_up_console();
 
      test_main();
 
 diff -uNr 14_virtual_mem_part2_mmio_remap/kernel/src/main.rs 15_virtual_mem_part3_precomputed_tables/kernel/src/main.rs
 --- 14_virtual_mem_part2_mmio_remap/kernel/src/main.rs
 +++ 15_virtual_mem_part3_precomputed_tables/kernel/src/main.rs
-@@ -17,29 +17,18 @@
+@@ -17,27 +17,16 @@
 
  /// Early init code.
  ///
@@ -1363,8 +1375,6 @@ diff -uNr 14_virtual_mem_part2_mmio_remap/kernel/src/main.rs 15_virtual_mem_part
 +/// - Printing will not work until the respective driver's MMIO is remapped.
  #[no_mangle]
  unsafe fn kernel_init() -> ! {
-     use driver::interface::DriverManager;
-
      exception::handling_init();
 -
 -    let phys_kernel_tables_base_addr = match memory::mmu::kernel_map_binary() {
@@ -1379,11 +1389,11 @@ diff -uNr 14_virtual_mem_part2_mmio_remap/kernel/src/main.rs 15_virtual_mem_part
 -    memory::mmu::post_enable_init();
 +    memory::init();
 
-     // Instantiate and init all device drivers.
-     if let Err(x) = bsp::driver::driver_manager().instantiate_drivers() {
-@@ -58,6 +47,8 @@
-         }
-     }
+     // Initialize the BSP driver subsystem.
+     if let Err(x) = bsp::driver::init() {
+@@ -47,6 +36,8 @@
+     // Initialize all device drivers.
+     driver::driver_manager().init_drivers_and_irqs();
 
 +    bsp::memory::mmu::kernel_add_mapping_records_for_precomputed();
 +
@@ -1699,8 +1709,8 @@ diff -uNr 14_virtual_mem_part2_mmio_remap/kernel/src/memory.rs 15_virtual_mem_pa
 diff -uNr 14_virtual_mem_part2_mmio_remap/kernel/tests/00_console_sanity.rs 15_virtual_mem_part3_precomputed_tables/kernel/tests/00_console_sanity.rs
 --- 14_virtual_mem_part2_mmio_remap/kernel/tests/00_console_sanity.rs
 +++ 15_virtual_mem_part3_precomputed_tables/kernel/tests/00_console_sanity.rs
-@@ -19,17 +19,7 @@
-     use driver::interface::DriverManager;
+@@ -18,17 +18,7 @@
+     use console::console;
 
      exception::handling_init();
 -
@@ -1715,16 +1725,16 @@ diff -uNr 14_virtual_mem_part2_mmio_remap/kernel/tests/00_console_sanity.rs 15_v
 -
 -    memory::mmu::post_enable_init();
 +    memory::init();
-     bsp::driver::driver_manager().qemu_bring_up_console();
+     bsp::driver::qemu_bring_up_console();
 
      // Handshake
 
 diff -uNr 14_virtual_mem_part2_mmio_remap/kernel/tests/01_timer_sanity.rs 15_virtual_mem_part3_precomputed_tables/kernel/tests/01_timer_sanity.rs
 --- 14_virtual_mem_part2_mmio_remap/kernel/tests/01_timer_sanity.rs
 +++ 15_virtual_mem_part3_precomputed_tables/kernel/tests/01_timer_sanity.rs
-@@ -19,17 +19,7 @@
-     use driver::interface::DriverManager;
-
+@@ -17,17 +17,7 @@
+ #[no_mangle]
+ unsafe fn kernel_init() -> ! {
      exception::handling_init();
 -
 -    let phys_kernel_tables_base_addr = match memory::mmu::kernel_map_binary() {
@@ -1738,19 +1748,19 @@ diff -uNr 14_virtual_mem_part2_mmio_remap/kernel/tests/01_timer_sanity.rs 15_vir
 -
 -    memory::mmu::post_enable_init();
 +    memory::init();
-     bsp::driver::driver_manager().qemu_bring_up_console();
+     bsp::driver::qemu_bring_up_console();
 
      // Depending on CPU arch, some timer bring-up code could go here. Not needed for the RPi.
 
 diff -uNr 14_virtual_mem_part2_mmio_remap/kernel/tests/02_exception_sync_page_fault.rs 15_virtual_mem_part3_precomputed_tables/kernel/tests/02_exception_sync_page_fault.rs
 --- 14_virtual_mem_part2_mmio_remap/kernel/tests/02_exception_sync_page_fault.rs
 +++ 15_virtual_mem_part3_precomputed_tables/kernel/tests/02_exception_sync_page_fault.rs
-@@ -24,26 +24,12 @@
-     use driver::interface::DriverManager;
-
+@@ -22,26 +22,12 @@
+ #[no_mangle]
+ unsafe fn kernel_init() -> ! {
      exception::handling_init();
 +    memory::init();
-+    bsp::driver::driver_manager().qemu_bring_up_console();
++    bsp::driver::qemu_bring_up_console();
 
      // This line will be printed as the test header.
      println!("Testing synchronous exception handling by causing a page fault");
@@ -1769,7 +1779,7 @@ diff -uNr 14_virtual_mem_part2_mmio_remap/kernel/tests/02_exception_sync_page_fa
 -    }
 -
 -    memory::mmu::post_enable_init();
--    bsp::driver::driver_manager().qemu_bring_up_console();
+-    bsp::driver::qemu_bring_up_console();
 -
      info!("Writing beyond mapped area to address 9 GiB...");
      let big_addr: u64 = 9 * 1024 * 1024 * 1024;
@@ -1778,12 +1788,12 @@ diff -uNr 14_virtual_mem_part2_mmio_remap/kernel/tests/02_exception_sync_page_fa
 diff -uNr 14_virtual_mem_part2_mmio_remap/kernel/tests/03_exception_restore_sanity.rs 15_virtual_mem_part3_precomputed_tables/kernel/tests/03_exception_restore_sanity.rs
 --- 14_virtual_mem_part2_mmio_remap/kernel/tests/03_exception_restore_sanity.rs
 +++ 15_virtual_mem_part3_precomputed_tables/kernel/tests/03_exception_restore_sanity.rs
-@@ -33,26 +33,12 @@
-     use driver::interface::DriverManager;
-
+@@ -31,26 +31,12 @@
+ #[no_mangle]
+ unsafe fn kernel_init() -> ! {
      exception::handling_init();
 +    memory::init();
-+    bsp::driver::driver_manager().qemu_bring_up_console();
++    bsp::driver::qemu_bring_up_console();
 
      // This line will be printed as the test header.
      println!("Testing exception restore");
@@ -1802,7 +1812,7 @@ diff -uNr 14_virtual_mem_part2_mmio_remap/kernel/tests/03_exception_restore_sani
 -    }
 -
 -    memory::mmu::post_enable_init();
--    bsp::driver::driver_manager().qemu_bring_up_console();
+-    bsp::driver::qemu_bring_up_console();
 -
      info!("Making a dummy system call");
 
@@ -1811,10 +1821,10 @@ diff -uNr 14_virtual_mem_part2_mmio_remap/kernel/tests/03_exception_restore_sani
 diff -uNr 14_virtual_mem_part2_mmio_remap/kernel/tests/04_exception_irq_sanity.rs 15_virtual_mem_part3_precomputed_tables/kernel/tests/04_exception_irq_sanity.rs
 --- 14_virtual_mem_part2_mmio_remap/kernel/tests/04_exception_irq_sanity.rs
 +++ 15_virtual_mem_part3_precomputed_tables/kernel/tests/04_exception_irq_sanity.rs
-@@ -17,20 +17,10 @@
- unsafe fn kernel_init() -> ! {
-     use driver::interface::DriverManager;
+@@ -15,20 +15,10 @@
 
+ #[no_mangle]
+ unsafe fn kernel_init() -> ! {
 -    exception::handling_init();
 -
 -    let phys_kernel_tables_base_addr = match memory::mmu::kernel_map_binary() {
@@ -1828,7 +1838,7 @@ diff -uNr 14_virtual_mem_part2_mmio_remap/kernel/tests/04_exception_irq_sanity.r
 -
 -    memory::mmu::post_enable_init();
 +    memory::init();
-     bsp::driver::driver_manager().qemu_bring_up_console();
+     bsp::driver::qemu_bring_up_console();
 
 +    exception::handling_init();
      exception::asynchronous::local_irq_unmask();
@@ -1838,7 +1848,7 @@ diff -uNr 14_virtual_mem_part2_mmio_remap/kernel/tests/04_exception_irq_sanity.r
 diff -uNr 14_virtual_mem_part2_mmio_remap/Makefile 15_virtual_mem_part3_precomputed_tables/Makefile
 --- 14_virtual_mem_part2_mmio_remap/Makefile
 +++ 15_virtual_mem_part3_precomputed_tables/Makefile
-@@ -71,10 +71,20 @@
+@@ -72,10 +72,20 @@
  KERNEL_LINKER_SCRIPT = kernel.ld
  LAST_BUILD_CONFIG    = target/$(BSP).build_config
 
@@ -1861,7 +1871,7 @@ diff -uNr 14_virtual_mem_part2_mmio_remap/Makefile 15_virtual_mem_part3_precompu
 
 
 
-@@ -103,6 +113,7 @@
+@@ -104,6 +114,7 @@
      -O binary
 
  EXEC_QEMU          = $(QEMU_BINARY) -M $(QEMU_MACHINE_TYPE)
@@ -1869,7 +1879,7 @@ diff -uNr 14_virtual_mem_part2_mmio_remap/Makefile 15_virtual_mem_part3_precompu
  EXEC_TEST_DISPATCH = ruby ../common/tests/dispatch.rb
  EXEC_MINIPUSH      = ruby ../common/serial/minipush.rb
 
-@@ -153,16 +164,24 @@
+@@ -154,16 +165,24 @@
  ##------------------------------------------------------------------------------
  ## Compile the kernel ELF
  ##------------------------------------------------------------------------------
@@ -1897,7 +1907,7 @@ diff -uNr 14_virtual_mem_part2_mmio_remap/Makefile 15_virtual_mem_part3_precompu
  	$(call color_progress_prefix, "Name")
  	@echo $(KERNEL_BIN)
  	$(call color_progress_prefix, "Size")
-@@ -300,6 +319,7 @@
+@@ -301,6 +320,7 @@
      TEST_ELF=$$(echo $$1 | sed -e 's/.*target/target/g')
      TEST_BINARY=$$(echo $$1.img | sed -e 's/.*target/target/g')
 
@@ -1914,7 +1924,7 @@ diff -uNr 14_virtual_mem_part2_mmio_remap/tools/translation_table_tool/arch.rb 1
 +
 +# SPDX-License-Identifier: MIT OR Apache-2.0
 +#
-+# Copyright (c) 2021-2022 Andre Richter <andre.o.richter@gmail.com>
++# Copyright (c) 2021-2023 Andre Richter <andre.o.richter@gmail.com>
 +
 +# Bitfield manipulation.
 +class BitField
@@ -2231,7 +2241,7 @@ diff -uNr 14_virtual_mem_part2_mmio_remap/tools/translation_table_tool/bsp.rb 15
 +
 +# SPDX-License-Identifier: MIT OR Apache-2.0
 +#
-+# Copyright (c) 2021-2022 Andre Richter <andre.o.richter@gmail.com>
++# Copyright (c) 2021-2023 Andre Richter <andre.o.richter@gmail.com>
 +
 +# Raspberry Pi 3 + 4
 +class RaspberryPi
@@ -2285,7 +2295,7 @@ diff -uNr 14_virtual_mem_part2_mmio_remap/tools/translation_table_tool/generic.r
 +
 +# SPDX-License-Identifier: MIT OR Apache-2.0
 +#
-+# Copyright (c) 2021-2022 Andre Richter <andre.o.richter@gmail.com>
++# Copyright (c) 2021-2023 Andre Richter <andre.o.richter@gmail.com>
 +
 +module Granule64KiB
 +    SIZE = 64 * 1024
@@ -2434,7 +2444,7 @@ diff -uNr 14_virtual_mem_part2_mmio_remap/tools/translation_table_tool/generic.r
 +    mapping_descriptors.each do |i|
 +        print 'Generating'.rjust(12).green.bold
 +        print ' '
-+        puts i.to_s
++        puts i
 +
 +        TRANSLATION_TABLES.map_at(i.virt_region, i.phys_region, i.attributes)
 +    end
@@ -2469,7 +2479,7 @@ diff -uNr 14_virtual_mem_part2_mmio_remap/tools/translation_table_tool/kernel_el
 +
 +# SPDX-License-Identifier: MIT OR Apache-2.0
 +#
-+# Copyright (c) 2021-2022 Andre Richter <andre.o.richter@gmail.com>
++# Copyright (c) 2021-2023 Andre Richter <andre.o.richter@gmail.com>
 +
 +# KernelELF
 +class KernelELF
@@ -2571,7 +2581,7 @@ diff -uNr 14_virtual_mem_part2_mmio_remap/tools/translation_table_tool/main.rb 1
 +
 +# SPDX-License-Identifier: MIT OR Apache-2.0
 +#
-+# Copyright (c) 2021-2022 Andre Richter <andre.o.richter@gmail.com>
++# Copyright (c) 2021-2023 Andre Richter <andre.o.richter@gmail.com>
 +
 +require 'rubygems'
 +require 'bundler/setup'

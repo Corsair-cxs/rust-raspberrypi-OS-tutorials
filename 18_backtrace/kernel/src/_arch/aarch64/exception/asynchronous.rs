@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //
-// Copyright (c) 2018-2022 Andre Richter <andre.o.richter@gmail.com>
+// Copyright (c) 2018-2023 Andre Richter <andre.o.richter@gmail.com>
 
 //! Architectural asynchronous exception handling.
 //!
@@ -11,8 +11,8 @@
 //!
 //! crate::exception::asynchronous::arch_asynchronous
 
+use aarch64_cpu::registers::*;
 use core::arch::asm;
-use cortex_a::registers::*;
 use tock_registers::interfaces::{Readable, Writeable};
 
 //--------------------------------------------------------------------------------------------------

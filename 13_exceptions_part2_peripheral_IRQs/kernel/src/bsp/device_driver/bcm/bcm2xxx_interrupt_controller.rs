@@ -1,12 +1,17 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //
-// Copyright (c) 2020-2022 Andre Richter <andre.o.richter@gmail.com>
+// Copyright (c) 2020-2023 Andre Richter <andre.o.richter@gmail.com>
 
 //! Interrupt Controller Driver.
 
 mod peripheral_ic;
 
-use crate::{driver, exception};
+use crate::{
+    bsp::device_driver::common::BoundedUsize,
+    driver,
+    exception::{self, asynchronous::IRQHandlerDescriptor},
+};
+use core::fmt;
 
 //--------------------------------------------------------------------------------------------------
 // Private Definitions
@@ -21,10 +26,8 @@ struct PendingIRQs {
 // Public Definitions
 //--------------------------------------------------------------------------------------------------
 
-pub type LocalIRQ =
-    exception::asynchronous::IRQNumber<{ InterruptController::MAX_LOCAL_IRQ_NUMBER }>;
-pub type PeripheralIRQ =
-    exception::asynchronous::IRQNumber<{ InterruptController::MAX_PERIPHERAL_IRQ_NUMBER }>;
+pub type LocalIRQ = BoundedUsize<{ InterruptController::MAX_LOCAL_IRQ_NUMBER }>;
+pub type PeripheralIRQ = BoundedUsize<{ InterruptController::MAX_PERIPHERAL_IRQ_NUMBER }>;
 
 /// Used for the associated type of trait [`exception::asynchronous::interface::IRQManager`].
 #[derive(Copy, Clone)]
@@ -53,16 +56,13 @@ impl Iterator for PendingIRQs {
     type Item = usize;
 
     fn next(&mut self) -> Option<Self::Item> {
-        use core::intrinsics::cttz;
-
-        let next = cttz(self.bitmask);
-        if next == 64 {
+        if self.bitmask == 0 {
             return None;
         }
 
-        self.bitmask &= !(1 << next);
-
-        Some(next as usize)
+        let next = self.bitmask.trailing_zeros() as usize;
+        self.bitmask &= self.bitmask.wrapping_sub(1);
+        Some(next)
     }
 }
 
@@ -70,10 +70,19 @@ impl Iterator for PendingIRQs {
 // Public Code
 //--------------------------------------------------------------------------------------------------
 
+impl fmt::Display for IRQNumber {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::Local(number) => write!(f, "Local({})", number),
+            Self::Peripheral(number) => write!(f, "Peripheral({})", number),
+        }
+    }
+}
+
 impl InterruptController {
-    const MAX_LOCAL_IRQ_NUMBER: usize = 11;
+    // Restrict to 3 for now. This makes future code for local_ic.rs more straight forward.
+    const MAX_LOCAL_IRQ_NUMBER: usize = 3;
     const MAX_PERIPHERAL_IRQ_NUMBER: usize = 63;
-    const NUM_PERIPHERAL_IRQS: usize = Self::MAX_PERIPHERAL_IRQ_NUMBER + 1;
 
     pub const COMPATIBLE: &'static str = "BCM Interrupt Controller";
 
@@ -94,6 +103,8 @@ impl InterruptController {
 //------------------------------------------------------------------------------
 
 impl driver::interface::DeviceDriver for InterruptController {
+    type IRQNumberType = IRQNumber;
+
     fn compatible(&self) -> &'static str {
         Self::COMPATIBLE
     }
@@ -104,16 +115,23 @@ impl exception::asynchronous::interface::IRQManager for InterruptController {
 
     fn register_handler(
         &self,
-        irq: Self::IRQNumberType,
-        descriptor: exception::asynchronous::IRQDescriptor,
+        irq_handler_descriptor: exception::asynchronous::IRQHandlerDescriptor<Self::IRQNumberType>,
     ) -> Result<(), &'static str> {
-        match irq {
+        match irq_handler_descriptor.number() {
             IRQNumber::Local(_) => unimplemented!("Local IRQ controller not implemented."),
-            IRQNumber::Peripheral(pirq) => self.periph.register_handler(pirq, descriptor),
+            IRQNumber::Peripheral(pirq) => {
+                let periph_descriptor = IRQHandlerDescriptor::new(
+                    pirq,
+                    irq_handler_descriptor.name(),
+                    irq_handler_descriptor.handler(),
+                );
+
+                self.periph.register_handler(periph_descriptor)
+            }
         }
     }
 
-    fn enable(&self, irq: Self::IRQNumberType) {
+    fn enable(&self, irq: &Self::IRQNumberType) {
         match irq {
             IRQNumber::Local(_) => unimplemented!("Local IRQ controller not implemented."),
             IRQNumber::Peripheral(pirq) => self.periph.enable(pirq),

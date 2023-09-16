@@ -1,9 +1,10 @@
 ## SPDX-License-Identifier: MIT OR Apache-2.0
 ##
-## Copyright (c) 2018-2022 Andre Richter <andre.o.richter@gmail.com>
+## Copyright (c) 2018-2023 Andre Richter <andre.o.richter@gmail.com>
 
-include ../common/format.mk
 include ../common/docker.mk
+include ../common/format.mk
+include ../common/operating_system.mk
 
 ##--------------------------------------------------------------------------------------------------
 ## Optional, user-provided configuration values
@@ -185,7 +186,7 @@ $(KERNEL_BIN): $(KERNEL_ELF_TTABLES)
 	$(call color_progress_prefix, "Name")
 	@echo $(KERNEL_BIN)
 	$(call color_progress_prefix, "Size")
-	@printf '%s KiB\n' `du -k $(KERNEL_BIN) | cut -f1`
+	$(call disk_usage_KiB, $(KERNEL_BIN))
 
 ##------------------------------------------------------------------------------
 ## Generate the documentation
@@ -310,7 +311,7 @@ test_boot: $(KERNEL_BIN)
 ## Helpers for unit and integration test targets
 ##------------------------------------------------------------------------------
 define KERNEL_TEST_RUNNER
-    #!/usr/bin/env bash
+#!/usr/bin/env bash
 
     # The cargo test runner seems to change into the crate under test's directory. Therefore, ensure
     # this script executes from the root.

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //
-// Copyright (c) 2022 Andre Richter <andre.o.richter@gmail.com>
+// Copyright (c) 2022-2023 Andre Richter <andre.o.richter@gmail.com>
 
 //! Architectural backtracing support.
 //!
@@ -15,7 +15,7 @@ use crate::{
     backtrace::BacktraceItem,
     memory::{Address, Virtual},
 };
-use cortex_a::registers::*;
+use aarch64_cpu::registers::*;
 use tock_registers::interfaces::Readable;
 
 //--------------------------------------------------------------------------------------------------

@@ -140,7 +140,7 @@ Binary files 05_drivers_gpio_uart/demo_payload_rpi4.img and 06_uart_chainloader/
 diff -uNr 05_drivers_gpio_uart/Makefile 06_uart_chainloader/Makefile
 --- 05_drivers_gpio_uart/Makefile
 +++ 06_uart_chainloader/Makefile
-@@ -23,27 +23,29 @@
+@@ -24,27 +24,29 @@
  QEMU_MISSING_STRING = "This board is not yet supported for QEMU."
 
  ifeq ($(BSP),rpi3)
@@ -190,7 +190,7 @@ diff -uNr 05_drivers_gpio_uart/Makefile 06_uart_chainloader/Makefile
  endif
 
  # Export for build.rs.
-@@ -89,8 +91,8 @@
+@@ -90,8 +92,8 @@
      -O binary
 
  EXEC_QEMU          = $(QEMU_BINARY) -M $(QEMU_MACHINE_TYPE)
@@ -201,7 +201,7 @@ diff -uNr 05_drivers_gpio_uart/Makefile 06_uart_chainloader/Makefile
 
  ##------------------------------------------------------------------------------
  ## Dockerization
-@@ -109,7 +111,7 @@
+@@ -110,7 +112,7 @@
  ifeq ($(shell uname -s),Linux)
      DOCKER_CMD_DEV = $(DOCKER_CMD_INTERACT) $(DOCKER_ARG_DEV)
 
@@ -210,7 +210,7 @@ diff -uNr 05_drivers_gpio_uart/Makefile 06_uart_chainloader/Makefile
  endif
 
 
-@@ -117,7 +119,7 @@
+@@ -118,7 +120,7 @@
  ##--------------------------------------------------------------------------------------------------
  ## Targets
  ##--------------------------------------------------------------------------------------------------
@@ -219,7 +219,7 @@ diff -uNr 05_drivers_gpio_uart/Makefile 06_uart_chainloader/Makefile
 
  all: $(KERNEL_BIN)
 
-@@ -159,7 +161,7 @@
+@@ -160,7 +162,7 @@
  ##------------------------------------------------------------------------------
  ifeq ($(QEMU_MACHINE_TYPE),) # QEMU is not supported for the board.
 
@@ -228,7 +228,7 @@ diff -uNr 05_drivers_gpio_uart/Makefile 06_uart_chainloader/Makefile
  	$(call color_header, "$(QEMU_MISSING_STRING)")
 
  else # QEMU is supported.
-@@ -168,13 +170,17 @@
+@@ -169,13 +171,17 @@
  	$(call color_header, "Launching QEMU")
  	@$(DOCKER_QEMU) $(EXEC_QEMU) $(QEMU_RELEASE_ARGS) -kernel $(KERNEL_BIN)
 
@@ -237,7 +237,6 @@ diff -uNr 05_drivers_gpio_uart/Makefile 06_uart_chainloader/Makefile
 +	@$(DOCKER_QEMU) $(EXEC_QEMU) $(QEMU_RELEASE_ARGS) -kernel $(KERNEL_BIN) -d in_asm
 +
  endif
-
  ##------------------------------------------------------------------------------
 -## Connect to the target's serial
 +## Push the kernel to the real HW target
@@ -249,7 +248,7 @@ diff -uNr 05_drivers_gpio_uart/Makefile 06_uart_chainloader/Makefile
 
  ##------------------------------------------------------------------------------
  ## Run clippy
-@@ -231,7 +237,8 @@
+@@ -232,7 +238,8 @@
  ##------------------------------------------------------------------------------
  test_boot: $(KERNEL_BIN)
  	$(call color_header, "Boot test - $(BSP)")
@@ -369,11 +368,32 @@ diff -uNr 05_drivers_gpio_uart/src/bsp/device_driver/bcm/bcm2xxx_pl011_uart.rs 0
          {}
      }
 
+diff -uNr 05_drivers_gpio_uart/src/bsp/raspberrypi/console.rs 06_uart_chainloader/src/bsp/raspberrypi/console.rs
+--- 05_drivers_gpio_uart/src/bsp/raspberrypi/console.rs
++++ 06_uart_chainloader/src/bsp/raspberrypi/console.rs
+@@ -1,16 +0,0 @@
+-// SPDX-License-Identifier: MIT OR Apache-2.0
+-//
+-// Copyright (c) 2018-2023 Andre Richter <andre.o.richter@gmail.com>
+-
+-//! BSP console facilities.
+-
+-use crate::console;
+-
+-//--------------------------------------------------------------------------------------------------
+-// Public Code
+-//--------------------------------------------------------------------------------------------------
+-
+-/// Return a reference to the console.
+-pub fn console() -> &'static dyn console::interface::All {
+-    &super::driver::PL011_UART
+-}
+
 diff -uNr 05_drivers_gpio_uart/src/bsp/raspberrypi/kernel.ld 06_uart_chainloader/src/bsp/raspberrypi/kernel.ld
 --- 05_drivers_gpio_uart/src/bsp/raspberrypi/kernel.ld
 +++ 06_uart_chainloader/src/bsp/raspberrypi/kernel.ld
 @@ -3,8 +3,6 @@
-  * Copyright (c) 2018-2022 Andre Richter <andre.o.richter@gmail.com>
+  * Copyright (c) 2018-2023 Andre Richter <andre.o.richter@gmail.com>
   */
 
 -__rpi_phys_dram_start_addr = 0;
@@ -437,10 +457,41 @@ diff -uNr 05_drivers_gpio_uart/src/bsp/raspberrypi/memory.rs 06_uart_chainloader
 +    map::BOARD_DEFAULT_LOAD_ADDRESS as _
 +}
 
+diff -uNr 05_drivers_gpio_uart/src/driver.rs 06_uart_chainloader/src/driver.rs
+--- 05_drivers_gpio_uart/src/driver.rs
++++ 06_uart_chainloader/src/driver.rs
+@@ -4,10 +4,7 @@
+
+ //! Driver support.
+
+-use crate::{
+-    println,
+-    synchronization::{interface::Mutex, NullLock},
+-};
++use crate::synchronization::{interface::Mutex, NullLock};
+
+ //--------------------------------------------------------------------------------------------------
+ // Private Definitions
+@@ -154,14 +151,4 @@
+             }
+         });
+     }
+-
+-    /// Enumerate all registered device drivers.
+-    pub fn enumerate(&self) {
+-        let mut i: usize = 1;
+-        self.for_each_descriptor(|descriptor| {
+-            println!("      {}. {}", i, descriptor.device_driver.compatible());
+-
+-            i += 1;
+-        });
+-    }
+ }
+
 diff -uNr 05_drivers_gpio_uart/src/main.rs 06_uart_chainloader/src/main.rs
 --- 05_drivers_gpio_uart/src/main.rs
 +++ 06_uart_chainloader/src/main.rs
-@@ -143,34 +143,55 @@
+@@ -142,27 +142,55 @@
      kernel_main()
  }
 
@@ -454,7 +505,6 @@ diff -uNr 05_drivers_gpio_uart/src/main.rs 06_uart_chainloader/src/main.rs
  /// The main function running after the early init.
  fn kernel_main() -> ! {
      use console::console;
--    use driver::interface::DriverManager;
 
 -    println!(
 -        "[0] {} version {}",
@@ -462,41 +512,35 @@ diff -uNr 05_drivers_gpio_uart/src/main.rs 06_uart_chainloader/src/main.rs
 -        env!("CARGO_PKG_VERSION")
 -    );
 -    println!("[1] Booting on: {}", bsp::board_name());
--
--    println!("[2] Drivers loaded:");
--    for (i, driver) in bsp::driver::driver_manager()
--        .all_device_drivers()
--        .iter()
--        .enumerate()
--    {
--        println!("      {}. {}", i + 1, driver.compatible());
 +    println!("{}", MINILOAD_LOGO);
 +    println!("{:^37}", bsp::board_name());
 +    println!();
 +    println!("[ML] Requesting binary");
 +    console().flush();
-+
+
+-    println!("[2] Drivers loaded:");
+-    driver::driver_manager().enumerate();
 +    // Discard any spurious received characters before starting with the loader protocol.
 +    console().clear_rx();
-+
-+    // Notify `Minipush` to send the binary.
-+    for _ in 0..3 {
-+        console().write_char(3 as char);
-     }
 
 -    println!("[3] Chars written: {}", console().chars_written());
 -    println!("[4] Echoing input now");
-+    // Read the binary's size.
-+    let mut size: u32 = u32::from(console().read_char() as u8);
-+    size |= u32::from(console().read_char() as u8) << 8;
-+    size |= u32::from(console().read_char() as u8) << 16;
-+    size |= u32::from(console().read_char() as u8) << 24;
++    // Notify `Minipush` to send the binary.
++    for _ in 0..3 {
++        console().write_char(3 as char);
++    }
 
 -    // Discard any spurious received characters before going into echo mode.
 -    console().clear_rx();
 -    loop {
 -        let c = console().read_char();
 -        console().write_char(c);
++    // Read the binary's size.
++    let mut size: u32 = u32::from(console().read_char() as u8);
++    size |= u32::from(console().read_char() as u8) << 8;
++    size |= u32::from(console().read_char() as u8) << 16;
++    size |= u32::from(console().read_char() as u8) << 24;
++
 +    // Trust it's not too big.
 +    console().write_char('O');
 +    console().write_char('K');
@@ -535,7 +579,7 @@ diff -uNr 05_drivers_gpio_uart/tests/chainboot_test.rb 06_uart_chainloader/tests
 +
 +# SPDX-License-Identifier: MIT OR Apache-2.0
 +#
-+# Copyright (c) 2020-2022 Andre Richter <andre.o.richter@gmail.com>
++# Copyright (c) 2020-2023 Andre Richter <andre.o.richter@gmail.com>
 +
 +require_relative '../../common/serial/minipush'
 +require_relative '../../common/tests/boot_test'

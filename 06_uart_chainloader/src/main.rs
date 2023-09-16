@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //
-// Copyright (c) 2018-2022 Andre Richter <andre.o.richter@gmail.com>
+// Copyright (c) 2018-2023 Andre Richter <andre.o.richter@gmail.com>
 
 // Rust embedded logo for `make doc`.
 #![doc(
@@ -129,14 +129,13 @@ mod synchronization;
 /// - Only a single core must be active and running this function.
 /// - The init calls in this function must appear in the correct order.
 unsafe fn kernel_init() -> ! {
-    use driver::interface::DriverManager;
-
-    for i in bsp::driver::driver_manager().all_device_drivers().iter() {
-        if let Err(x) = i.init() {
-            panic!("Error loading driver: {}: {}", i.compatible(), x);
-        }
+    // Initialize the BSP driver subsystem.
+    if let Err(x) = bsp::driver::init() {
+        panic!("Error initializing BSP driver subsystem: {}", x);
     }
-    bsp::driver::driver_manager().post_device_driver_init();
+
+    // Initialize all device drivers.
+    driver::driver_manager().init_drivers();
     // println! is usable from here on.
 
     // Transition from unsafe to safe.

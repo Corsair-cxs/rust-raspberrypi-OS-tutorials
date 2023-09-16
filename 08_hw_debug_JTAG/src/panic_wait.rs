@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //
-// Copyright (c) 2018-2022 Andre Richter <andre.o.richter@gmail.com>
+// Copyright (c) 2018-2023 Andre Richter <andre.o.richter@gmail.com>
 
 //! A panic handler that infinitely waits.
 
@@ -42,8 +42,6 @@ fn panic_prevent_reenter() {
 
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
-    use crate::time::interface::TimeManager;
-
     // Protect against panic infinite loops if any of the following code panics itself.
     panic_prevent_reenter();
 

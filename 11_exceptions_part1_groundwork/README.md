@@ -507,10 +507,10 @@ diff -uNr 10_virtual_mem_part1_identity_mapping/src/_arch/aarch64/exception.rs 1
  //!
  //! crate::exception::arch_exception
 
--use cortex_a::registers::*;
+-use aarch64_cpu::registers::*;
 -use tock_registers::interfaces::Readable;
++use aarch64_cpu::{asm::barrier, registers::*};
 +use core::{arch::global_asm, cell::UnsafeCell, fmt};
-+use cortex_a::{asm::barrier, registers::*};
 +use tock_registers::{
 +    interfaces::{Readable, Writeable},
 +    registers::InMemoryRegister,
@@ -800,7 +800,7 @@ diff -uNr 10_virtual_mem_part1_identity_mapping/src/_arch/aarch64/exception.s 11
 @@ -0,0 +1,154 @@
 +// SPDX-License-Identifier: MIT OR Apache-2.0
 +//
-+// Copyright (c) 2018-2022 Andre Richter <andre.o.richter@gmail.com>
++// Copyright (c) 2018-2023 Andre Richter <andre.o.richter@gmail.com>
 +
 +//--------------------------------------------------------------------------------------------------
 +// Definitions
@@ -1024,8 +1024,8 @@ diff -uNr 10_virtual_mem_part1_identity_mapping/src/exception.rs 11_exceptions_p
 diff -uNr 10_virtual_mem_part1_identity_mapping/src/main.rs 11_exceptions_part1_groundwork/src/main.rs
 --- 10_virtual_mem_part1_identity_mapping/src/main.rs
 +++ 11_exceptions_part1_groundwork/src/main.rs
-@@ -142,6 +142,8 @@
-     use driver::interface::DriverManager;
+@@ -144,6 +144,8 @@
+ unsafe fn kernel_init() -> ! {
      use memory::mmu::interface::MMU;
 
 +    exception::handling_init();
@@ -1033,16 +1033,16 @@ diff -uNr 10_virtual_mem_part1_identity_mapping/src/main.rs 11_exceptions_part1_
      if let Err(string) = memory::mmu::mmu().enable_mmu_and_caching() {
          panic!("MMU: {}", string);
      }
-@@ -160,7 +162,7 @@
+@@ -163,7 +165,7 @@
 
  /// The main function running after the early init.
  fn kernel_main() -> ! {
 -    use console::{console, interface::Write};
 +    use console::console;
      use core::time::Duration;
-     use driver::interface::DriverManager;
-     use time::interface::TimeManager;
-@@ -198,13 +200,28 @@
+
+     info!(
+@@ -193,13 +195,28 @@
      info!("Timer test, spinning for 1 second");
      time::time_manager().spin_for(Duration::from_secs(1));
 

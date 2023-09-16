@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //
-// Copyright (c) 2018-2022 Andre Richter <andre.o.richter@gmail.com>
+// Copyright (c) 2018-2023 Andre Richter <andre.o.richter@gmail.com>
 
 //! GPIO Driver.
 
@@ -140,7 +140,7 @@ impl GPIOInner {
     /// Disable pull-up/down on pins 14 and 15.
     #[cfg(feature = "bsp_rpi3")]
     fn disable_pud_14_15_bcm2837(&mut self) {
-        use crate::{time, time::interface::TimeManager};
+        use crate::time;
         use core::time::Duration;
 
         // The Linux 2837 GPIO driver waits 1 µs between the steps.

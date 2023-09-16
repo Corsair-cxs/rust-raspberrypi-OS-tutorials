@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //
-// Copyright (c) 2019-2022 Andre Richter <andre.o.richter@gmail.com>
+// Copyright (c) 2019-2023 Andre Richter <andre.o.richter@gmail.com>
 
 //! Page faults must result in synchronous exceptions.
 
@@ -17,15 +17,14 @@
 /// or indirectly.
 mod panic_exit_success;
 
-use libkernel::{bsp, cpu, driver, exception, info, memory, println};
+use libkernel::{bsp, cpu, exception, info, memory, println};
 
 #[no_mangle]
 unsafe fn kernel_init() -> ! {
-    use driver::interface::DriverManager;
     use memory::mmu::interface::MMU;
 
     exception::handling_init();
-    bsp::driver::driver_manager().qemu_bring_up_console();
+    bsp::driver::qemu_bring_up_console();
 
     // This line will be printed as the test header.
     println!("Testing synchronous exception handling by causing a page fault");

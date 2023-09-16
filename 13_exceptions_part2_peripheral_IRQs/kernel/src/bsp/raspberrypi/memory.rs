@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //
-// Copyright (c) 2018-2022 Andre Richter <andre.o.richter@gmail.com>
+// Copyright (c) 2018-2023 Andre Richter <andre.o.richter@gmail.com>
 
 //! BSP Memory Management.
 //!
@@ -73,11 +73,11 @@ pub(super) mod map {
     pub mod mmio {
         use super::*;
 
-        pub const START:                                 usize =         0x3F00_0000;
-        pub const PERIPHERAL_INTERRUPT_CONTROLLER_START: usize = START + 0x0000_B200;
-        pub const GPIO_START:                            usize = START + GPIO_OFFSET;
-        pub const PL011_UART_START:                      usize = START + UART_OFFSET;
-        pub const END_INCLUSIVE:                         usize =         0x4000_FFFF;
+        pub const START:               usize =         0x3F00_0000;
+        pub const PERIPHERAL_IC_START: usize = START + 0x0000_B200;
+        pub const GPIO_START:          usize = START + GPIO_OFFSET;
+        pub const PL011_UART_START:    usize = START + UART_OFFSET;
+        pub const END_INCLUSIVE:       usize =         0x4000_FFFF;
     }
 
     /// Physical devices.

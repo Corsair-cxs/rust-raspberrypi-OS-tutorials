@@ -3,7 +3,7 @@
 
 # SPDX-License-Identifier: MIT OR Apache-2.0
 #
-# Copyright (c) 2020-2022 Andre Richter <andre.o.richter@gmail.com>
+# Copyright (c) 2020-2023 Andre Richter <andre.o.richter@gmail.com>
 
 require 'rubygems'
 require 'bundler/setup'
@@ -94,7 +94,7 @@ class TutorialCrate
     private
 
     def boot_test?
-        Dir.exist?("#{@folder}/kernel/tests")
+        Dir.exist?("#{@folder}/tests") || Dir.exist?("#{@folder}/kernel/tests")
     end
 
     def unit_integration_tests?
@@ -108,7 +108,7 @@ class DevTool
         @user_has_supplied_crates = false
         @bsp = bsp_from_env || SUPPORTED_BSPS.first
 
-        cl = user_supplied_crate_list || Dir['*/Cargo.toml'].sort
+        cl = user_supplied_crate_list || Dir['*/Cargo.toml']
         @crates = cl.map { |c| TutorialCrate.new(c.delete_suffix('/Cargo.toml')) }
     end
 
@@ -329,9 +329,9 @@ class DevTool
     end
 end
 
-##--------------------------------------------------------------------------------------------------
+## -------------------------------------------------------------------------------------------------
 ## Execution starts here
-##--------------------------------------------------------------------------------------------------
+## -------------------------------------------------------------------------------------------------
 tool = DevTool.new
 cmd = ARGV[0]
 commands = tool.public_methods(false).sort

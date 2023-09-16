@@ -1,10 +1,14 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //
-// Copyright (c) 2020-2022 Andre Richter <andre.o.richter@gmail.com>
+// Copyright (c) 2020-2023 Andre Richter <andre.o.richter@gmail.com>
 
 //! Peripheral Interrupt Controller Driver.
+//!
+//! # Resources
+//!
+//! - <https://github.com/raspberrypi/documentation/files/1888662/BCM2837-ARM-Peripherals.-.Revised.-.V2-1.pdf>
 
-use super::{InterruptController, PendingIRQs, PeripheralIRQ};
+use super::{PendingIRQs, PeripheralIRQ};
 use crate::{
     bsp::device_driver::common::MMIODerefWrapper,
     exception,
@@ -28,7 +32,7 @@ register_structs! {
         (0x00 => _reserved1),
         (0x10 => ENABLE_1: WriteOnly<u32>),
         (0x14 => ENABLE_2: WriteOnly<u32>),
-        (0x24 => @END),
+        (0x18 => @END),
     }
 }
 
@@ -48,8 +52,8 @@ type WriteOnlyRegisters = MMIODerefWrapper<WORegisterBlock>;
 /// Abstraction for the ReadOnly parts of the associated MMIO registers.
 type ReadOnlyRegisters = MMIODerefWrapper<RORegisterBlock>;
 
-type HandlerTable =
-    [Option<exception::asynchronous::IRQDescriptor>; InterruptController::NUM_PERIPHERAL_IRQS];
+type HandlerTable = [Option<exception::asynchronous::IRQHandlerDescriptor<PeripheralIRQ>>;
+    PeripheralIRQ::MAX_INCLUSIVE + 1];
 
 //--------------------------------------------------------------------------------------------------
 // Public Definitions
@@ -81,7 +85,7 @@ impl PeripheralIC {
         Self {
             wo_registers: IRQSafeNullLock::new(WriteOnlyRegisters::new(mmio_start_addr)),
             ro_registers: ReadOnlyRegisters::new(mmio_start_addr),
-            handler_table: InitStateLock::new([None; InterruptController::NUM_PERIPHERAL_IRQS]),
+            handler_table: InitStateLock::new([None; PeripheralIRQ::MAX_INCLUSIVE + 1]),
         }
     }
 
@@ -104,23 +108,22 @@ impl exception::asynchronous::interface::IRQManager for PeripheralIC {
 
     fn register_handler(
         &self,
-        irq: Self::IRQNumberType,
-        descriptor: exception::asynchronous::IRQDescriptor,
+        irq_handler_descriptor: exception::asynchronous::IRQHandlerDescriptor<Self::IRQNumberType>,
     ) -> Result<(), &'static str> {
         self.handler_table.write(|table| {
-            let irq_number = irq.get();
+            let irq_number = irq_handler_descriptor.number().get();
 
             if table[irq_number].is_some() {
                 return Err("IRQ handler already registered");
             }
 
-            table[irq_number] = Some(descriptor);
+            table[irq_number] = Some(irq_handler_descriptor);
 
             Ok(())
         })
     }
 
-    fn enable(&self, irq: Self::IRQNumberType) {
+    fn enable(&self, irq: &Self::IRQNumberType) {
         self.wo_registers.lock(|regs| {
             let enable_reg = if irq.get() <= 31 {
                 &regs.ENABLE_1
@@ -146,7 +149,7 @@ impl exception::asynchronous::interface::IRQManager for PeripheralIC {
                     None => panic!("No handler registered for IRQ {}", irq_number),
                     Some(descriptor) => {
                         // Call the IRQ handler. Panics on failure.
-                        descriptor.handler.handle().expect("Error handling IRQ");
+                        descriptor.handler().handle().expect("Error handling IRQ");
                     }
                 }
             }
@@ -161,7 +164,7 @@ impl exception::asynchronous::interface::IRQManager for PeripheralIC {
         self.handler_table.read(|table| {
             for (i, opt) in table.iter().enumerate() {
                 if let Some(handler) = opt {
-                    info!("            {: >3}. {}", i, handler.name);
+                    info!("            {: >3}. {}", i, handler.name());
                 }
             }
         });

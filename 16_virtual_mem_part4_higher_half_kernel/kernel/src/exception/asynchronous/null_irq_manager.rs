@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //
-// Copyright (c) 2022 Andre Richter <andre.o.richter@gmail.com>
+// Copyright (c) 2022-2023 Andre Richter <andre.o.richter@gmail.com>
 
 //! Null IRQ Manager.
 
-use super::{interface, IRQContext, IRQDescriptor};
-use crate::bsp;
+use super::{interface, IRQContext, IRQHandlerDescriptor};
 
 //--------------------------------------------------------------------------------------------------
 // Public Definitions
@@ -24,17 +23,16 @@ pub static NULL_IRQ_MANAGER: NullIRQManager = NullIRQManager {};
 //--------------------------------------------------------------------------------------------------
 
 impl interface::IRQManager for NullIRQManager {
-    type IRQNumberType = bsp::driver::IRQNumber;
+    type IRQNumberType = super::IRQNumber;
 
     fn register_handler(
         &self,
-        _irq_number: Self::IRQNumberType,
-        _descriptor: IRQDescriptor,
+        _descriptor: IRQHandlerDescriptor<Self::IRQNumberType>,
     ) -> Result<(), &'static str> {
         panic!("No IRQ Manager registered yet");
     }
 
-    fn enable(&self, _irq_number: Self::IRQNumberType) {
+    fn enable(&self, _irq_number: &Self::IRQNumberType) {
         panic!("No IRQ Manager registered yet");
     }
 

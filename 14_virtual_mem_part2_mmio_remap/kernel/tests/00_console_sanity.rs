@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //
-// Copyright (c) 2019-2022 Andre Richter <andre.o.richter@gmail.com>
+// Copyright (c) 2019-2023 Andre Richter <andre.o.richter@gmail.com>
 
 //! Console sanity tests - RX, TX and statistics.
 
@@ -11,12 +11,11 @@
 /// Console tests should time out on the I/O harness in case of panic.
 mod panic_wait_forever;
 
-use libkernel::{bsp, console, cpu, driver, exception, memory, print};
+use libkernel::{bsp, console, cpu, exception, memory, print};
 
 #[no_mangle]
 unsafe fn kernel_init() -> ! {
     use console::console;
-    use driver::interface::DriverManager;
 
     exception::handling_init();
 
@@ -30,7 +29,7 @@ unsafe fn kernel_init() -> ! {
     }
 
     memory::mmu::post_enable_init();
-    bsp::driver::driver_manager().qemu_bring_up_console();
+    bsp::driver::qemu_bring_up_console();
 
     // Handshake
     assert_eq!(console().read_char(), 'A');

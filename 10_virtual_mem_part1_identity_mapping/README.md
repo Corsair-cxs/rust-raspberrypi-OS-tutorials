@@ -218,9 +218,9 @@ self.configure_translation_control();
 Finally, the `MMU` is turned on through the [System Control Register - EL1]. The last step also
 enables caching for data and instructions.
 
-[Translation Table Base Register 0 - EL1]: https://docs.rs/crate/cortex-a/5.1.2/source/src/regs/ttbr0_el1.rs
-[Translation Control Register - EL1]: https://docs.rs/crate/cortex-a/5.1.2/source/src/regs/tcr_el1.rs
-[System Control Register - EL1]: https://docs.rs/crate/cortex-a/5.1.2/source/src/regs/sctlr_el1.rs
+[Translation Table Base Register 0 - EL1]: https://docs.rs/aarch64-cpu/9.0.0/src/aarch64_cpu/registers/ttbr0_el1.rs.html
+[Translation Control Register - EL1]: https://docs.rs/aarch64-cpu/9.0.0/src/aarch64_cpu/registers/tcr_el1.rs.html
+[System Control Register - EL1]: https://docs.rs/aarch64-cpu/9.0.0/src/aarch64_cpu/registers/sctlr_el1.rs.html
 
 ### `kernel.ld`
 
@@ -257,11 +257,11 @@ The MMU init code is again a good example to see the great potential of Rust's z
 abstractions[[1]][[2]] for embedded programming.
 
 Let's take a look again at the piece of code for setting up the `MAIR_EL1` register using the
-[cortex-a] crate:
+[aarch64-cpu] crate:
 
 [1]: https://blog.rust-lang.org/2015/05/11/traits.html
 [2]: https://ruudvanasseldonk.com/2016/11/30/zero-cost-abstractions
-[cortex-a]: https://crates.io/crates/cortex-a
+[aarch64-cpu]: https://crates.io/crates/aarch64-cpu
 
 ```rust
 /// Setup function for the MAIR_EL1 register.
@@ -296,7 +296,6 @@ Turning on virtual memory is now the first thing we do during kernel init:
 
 ```rust
 unsafe fn kernel_init() -> ! {
-    use driver::interface::DriverManager;
     use memory::mmu::interface::MMU;
 
     if let Err(string) = memory::mmu::mmu().enable_mmu_and_caching() {
@@ -368,7 +367,7 @@ diff -uNr 09_privilege_level/src/_arch/aarch64/memory/mmu/translation_table.rs 1
 @@ -0,0 +1,292 @@
 +// SPDX-License-Identifier: MIT OR Apache-2.0
 +//
-+// Copyright (c) 2021-2022 Andre Richter <andre.o.richter@gmail.com>
++// Copyright (c) 2021-2023 Andre Richter <andre.o.richter@gmail.com>
 +
 +//! Architectural translation table.
 +//!
@@ -665,7 +664,7 @@ diff -uNr 09_privilege_level/src/_arch/aarch64/memory/mmu.rs 10_virtual_mem_part
 @@ -0,0 +1,165 @@
 +// SPDX-License-Identifier: MIT OR Apache-2.0
 +//
-+// Copyright (c) 2018-2022 Andre Richter <andre.o.richter@gmail.com>
++// Copyright (c) 2018-2023 Andre Richter <andre.o.richter@gmail.com>
 +
 +//! Memory Management Unit Driver.
 +//!
@@ -682,8 +681,8 @@ diff -uNr 09_privilege_level/src/_arch/aarch64/memory/mmu.rs 10_virtual_mem_part
 +    bsp, memory,
 +    memory::mmu::{translation_table::KernelTranslationTable, TranslationGranule},
 +};
++use aarch64_cpu::{asm::barrier, registers::*};
 +use core::intrinsics::unlikely;
-+use cortex_a::{asm::barrier, registers::*};
 +use tock_registers::interfaces::{ReadWriteable, Readable, Writeable};
 +
 +//--------------------------------------------------------------------------------------------------
@@ -833,7 +832,7 @@ diff -uNr 09_privilege_level/src/bsp/raspberrypi/kernel.ld 10_virtual_mem_part1_
 --- 09_privilege_level/src/bsp/raspberrypi/kernel.ld
 +++ 10_virtual_mem_part1_identity_mapping/src/bsp/raspberrypi/kernel.ld
 @@ -3,6 +3,9 @@
-  * Copyright (c) 2018-2022 Andre Richter <andre.o.richter@gmail.com>
+  * Copyright (c) 2018-2023 Andre Richter <andre.o.richter@gmail.com>
   */
 
 +PAGE_SIZE = 64K;
@@ -872,7 +871,7 @@ diff -uNr 09_privilege_level/src/bsp/raspberrypi/memory/mmu.rs 10_virtual_mem_pa
 @@ -0,0 +1,86 @@
 +// SPDX-License-Identifier: MIT OR Apache-2.0
 +//
-+// Copyright (c) 2018-2022 Andre Richter <andre.o.richter@gmail.com>
++// Copyright (c) 2018-2023 Andre Richter <andre.o.richter@gmail.com>
 +
 +//! BSP Memory Management Unit.
 +
@@ -961,7 +960,7 @@ diff -uNr 09_privilege_level/src/bsp/raspberrypi/memory.rs 10_virtual_mem_part1_
 --- 09_privilege_level/src/bsp/raspberrypi/memory.rs
 +++ 10_virtual_mem_part1_identity_mapping/src/bsp/raspberrypi/memory.rs
 @@ -3,6 +3,45 @@
- // Copyright (c) 2018-2022 Andre Richter <andre.o.richter@gmail.com>
+ // Copyright (c) 2018-2023 Andre Richter <andre.o.richter@gmail.com>
 
  //! BSP Memory Management.
 +//!
@@ -1085,7 +1084,7 @@ diff -uNr 09_privilege_level/src/common.rs 10_virtual_mem_part1_identity_mapping
 @@ -0,0 +1,22 @@
 +// SPDX-License-Identifier: MIT OR Apache-2.0
 +//
-+// Copyright (c) 2020-2022 Andre Richter <andre.o.richter@gmail.com>
++// Copyright (c) 2020-2023 Andre Richter <andre.o.richter@gmail.com>
 +
 +//! General purpose code.
 +
@@ -1109,18 +1108,20 @@ diff -uNr 09_privilege_level/src/common.rs 10_virtual_mem_part1_identity_mapping
 diff -uNr 09_privilege_level/src/main.rs 10_virtual_mem_part1_identity_mapping/src/main.rs
 --- 09_privilege_level/src/main.rs
 +++ 10_virtual_mem_part1_identity_mapping/src/main.rs
-@@ -107,18 +107,23 @@
+@@ -107,9 +107,12 @@
  //! 2. Once finished with architectural setup, the arch code calls `kernel_init()`.
 
  #![allow(clippy::upper_case_acronyms)]
 +#![allow(incomplete_features)]
  #![feature(asm_const)]
+ #![feature(const_option)]
 +#![feature(core_intrinsics)]
  #![feature(format_args_nl)]
 +#![feature(int_roundings)]
+ #![feature(nonzero_min_max)]
  #![feature(panic_info_message)]
  #![feature(trait_alias)]
- #![no_main]
+@@ -118,10 +121,12 @@
  #![no_std]
 
  mod bsp;
@@ -1133,7 +1134,7 @@ diff -uNr 09_privilege_level/src/main.rs 10_virtual_mem_part1_identity_mapping/s
  mod panic_wait;
  mod print;
  mod synchronization;
-@@ -129,9 +134,17 @@
+@@ -132,8 +137,17 @@
  /// # Safety
  ///
  /// - Only a single core must be active and running this function.
@@ -1143,25 +1144,25 @@ diff -uNr 09_privilege_level/src/main.rs 10_virtual_mem_part1_identity_mapping/s
 +///       e.g. the yet-to-be-introduced spinlocks in the device drivers (which currently employ
 +///       NullLocks instead of spinlocks), will fail to work (properly) on the RPi SoCs.
  unsafe fn kernel_init() -> ! {
-     use driver::interface::DriverManager;
 +    use memory::mmu::interface::MMU;
 +
 +    if let Err(string) = memory::mmu::mmu().enable_mmu_and_caching() {
 +        panic!("MMU: {}", string);
 +    }
-
-     for i in bsp::driver::driver_manager().all_device_drivers().iter() {
-         if let Err(x) = i.init() {
-@@ -147,7 +160,7 @@
++
+     // Initialize the BSP driver subsystem.
+     if let Err(x) = bsp::driver::init() {
+         panic!("Error initializing BSP driver subsystem: {}", x);
+@@ -149,7 +163,7 @@
 
  /// The main function running after the early init.
  fn kernel_main() -> ! {
 -    use console::console;
 +    use console::{console, interface::Write};
      use core::time::Duration;
-     use driver::interface::DriverManager;
-     use time::interface::TimeManager;
-@@ -159,6 +172,9 @@
+
+     info!(
+@@ -159,6 +173,9 @@
      );
      info!("Booting on: {}", bsp::board_name());
 
@@ -1171,7 +1172,7 @@ diff -uNr 09_privilege_level/src/main.rs 10_virtual_mem_part1_identity_mapping/s
      let (_, privilege_level) = exception::current_privilege_level();
      info!("Current privilege level: {}", privilege_level);
 
-@@ -182,6 +198,13 @@
+@@ -176,6 +193,13 @@
      info!("Timer test, spinning for 1 second");
      time::time_manager().spin_for(Duration::from_secs(1));
 
@@ -1192,7 +1193,7 @@ diff -uNr 09_privilege_level/src/memory/mmu/translation_table.rs 10_virtual_mem_
 @@ -0,0 +1,14 @@
 +// SPDX-License-Identifier: MIT OR Apache-2.0
 +//
-+// Copyright (c) 2021-2022 Andre Richter <andre.o.richter@gmail.com>
++// Copyright (c) 2021-2023 Andre Richter <andre.o.richter@gmail.com>
 +
 +//! Translation table.
 +
@@ -1211,7 +1212,7 @@ diff -uNr 09_privilege_level/src/memory/mmu.rs 10_virtual_mem_part1_identity_map
 @@ -0,0 +1,253 @@
 +// SPDX-License-Identifier: MIT OR Apache-2.0
 +//
-+// Copyright (c) 2020-2022 Andre Richter <andre.o.richter@gmail.com>
++// Copyright (c) 2020-2023 Andre Richter <andre.o.richter@gmail.com>
 +
 +//! Memory Management Unit.
 +//!
@@ -1469,7 +1470,7 @@ diff -uNr 09_privilege_level/src/memory.rs 10_virtual_mem_part1_identity_mapping
 @@ -0,0 +1,7 @@
 +// SPDX-License-Identifier: MIT OR Apache-2.0
 +//
-+// Copyright (c) 2018-2022 Andre Richter <andre.o.richter@gmail.com>
++// Copyright (c) 2018-2023 Andre Richter <andre.o.richter@gmail.com>
 +
 +//! Memory Management.
 +

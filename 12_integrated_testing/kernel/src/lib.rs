@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 //
-// Copyright (c) 2018-2022 Andre Richter <andre.o.richter@gmail.com>
+// Copyright (c) 2018-2023 Andre Richter <andre.o.richter@gmail.com>
 
 // Rust embedded logo for `make doc`.
 #![doc(
@@ -111,12 +111,15 @@
 #![allow(clippy::upper_case_acronyms)]
 #![allow(incomplete_features)]
 #![feature(asm_const)]
+#![feature(const_option)]
 #![feature(core_intrinsics)]
 #![feature(format_args_nl)]
 #![feature(int_roundings)]
 #![feature(linkage)]
+#![feature(nonzero_min_max)]
 #![feature(panic_info_message)]
 #![feature(trait_alias)]
+#![feature(unchecked_math)]
 #![no_std]
 // Testing
 #![cfg_attr(test, no_main)]
@@ -179,10 +182,8 @@ pub fn test_runner(tests: &[&test_types::UnitTest]) {
 #[cfg(test)]
 #[no_mangle]
 unsafe fn kernel_init() -> ! {
-    use driver::interface::DriverManager;
-
     exception::handling_init();
-    bsp::driver::driver_manager().qemu_bring_up_console();
+    bsp::driver::qemu_bring_up_console();
 
     test_main();
 

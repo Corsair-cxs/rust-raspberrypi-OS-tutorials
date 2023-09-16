@@ -19,12 +19,12 @@
      1. Jumps to the `_start_rust()` function, defined in `arch/__arch_name__/cpu/boot.rs`.
 - `_start_rust()`:
      - Calls `kernel_init()`, which calls `panic!()`, which eventually halts core0 as well.
-- The library now uses the [cortex-a] crate, which provides zero-overhead abstractions and wraps
+- The library now uses the [aarch64-cpu] crate, which provides zero-overhead abstractions and wraps
   `unsafe` parts when dealing with the CPU's resources.
     - See it in action in `_arch/__arch_name__/cpu.rs`.
 
 [bss]: https://en.wikipedia.org/wiki/.bss
-[cortex-a]: https://github.com/rust-embedded/cortex-a
+[aarch64-cpu]: https://github.com/rust-embedded/aarch64-cpu
 
 ## Diff to previous
 ```diff
@@ -47,18 +47,17 @@ diff -uNr 01_wait_forever/Cargo.toml 02_runtime_init/Cargo.toml
 +
 +# Platform specific dependencies
 +[target.'cfg(target_arch = "aarch64")'.dependencies]
-+cortex-a = { version = "7.x.x" }
++aarch64-cpu = { version = "9.x.x" }
 
 diff -uNr 01_wait_forever/Makefile 02_runtime_init/Makefile
 --- 01_wait_forever/Makefile
 +++ 02_runtime_init/Makefile
-@@ -180,6 +180,7 @@
+@@ -181,6 +181,7 @@
  	$(call color_header, "Launching objdump")
  	@$(DOCKER_TOOLS) $(OBJDUMP_BINARY) --disassemble --demangle \
                  --section .text   \
 +                --section .rodata \
                  $(KERNEL_ELF) | rustfilt
-
  ##------------------------------------------------------------------------------
 
 diff -uNr 01_wait_forever/src/_arch/aarch64/cpu/boot.rs 02_runtime_init/src/_arch/aarch64/cpu/boot.rs
@@ -90,7 +89,7 @@ diff -uNr 01_wait_forever/src/_arch/aarch64/cpu/boot.s 02_runtime_init/src/_arch
 --- 01_wait_forever/src/_arch/aarch64/cpu/boot.s
 +++ 02_runtime_init/src/_arch/aarch64/cpu/boot.s
 @@ -3,6 +3,22 @@
- // Copyright (c) 2021-2022 Andre Richter <andre.o.richter@gmail.com>
+ // Copyright (c) 2021-2023 Andre Richter <andre.o.richter@gmail.com>
 
  //--------------------------------------------------------------------------------------------------
 +// Definitions
@@ -117,10 +116,10 @@ diff -uNr 01_wait_forever/src/_arch/aarch64/cpu/boot.s 02_runtime_init/src/_arch
  //------------------------------------------------------------------------------
  _start:
 +	// Only proceed on the boot core. Park it otherwise.
-+	mrs	x1, MPIDR_EL1
-+	and	x1, x1, {CONST_CORE_ID_MASK}
-+	ldr	x2, BOOT_CORE_ID      // provided by bsp/__board_name__/cpu.rs
-+	cmp	x1, x2
++	mrs	x0, MPIDR_EL1
++	and	x0, x0, {CONST_CORE_ID_MASK}
++	ldr	x1, BOOT_CORE_ID      // provided by bsp/__board_name__/cpu.rs
++	cmp	x0, x1
 +	b.ne	.L_parking_loop
 +
 +	// If execution reaches here, it is the boot core.
@@ -154,7 +153,7 @@ diff -uNr 01_wait_forever/src/_arch/aarch64/cpu.rs 02_runtime_init/src/_arch/aar
 @@ -0,0 +1,26 @@
 +// SPDX-License-Identifier: MIT OR Apache-2.0
 +//
-+// Copyright (c) 2018-2022 Andre Richter <andre.o.richter@gmail.com>
++// Copyright (c) 2018-2023 Andre Richter <andre.o.richter@gmail.com>
 +
 +//! Architectural processor code.
 +//!
@@ -165,7 +164,7 @@ diff -uNr 01_wait_forever/src/_arch/aarch64/cpu.rs 02_runtime_init/src/_arch/aar
 +//!
 +//! crate::cpu::arch_cpu
 +
-+use cortex_a::asm;
++use aarch64_cpu::asm;
 +
 +//--------------------------------------------------------------------------------------------------
 +// Public Code
@@ -185,7 +184,7 @@ diff -uNr 01_wait_forever/src/bsp/raspberrypi/cpu.rs 02_runtime_init/src/bsp/ras
 @@ -0,0 +1,14 @@
 +// SPDX-License-Identifier: MIT OR Apache-2.0
 +//
-+// Copyright (c) 2018-2022 Andre Richter <andre.o.richter@gmail.com>
++// Copyright (c) 2018-2023 Andre Richter <andre.o.richter@gmail.com>
 +
 +//! BSP Processor code.
 +
@@ -202,7 +201,7 @@ diff -uNr 01_wait_forever/src/bsp/raspberrypi/kernel.ld 02_runtime_init/src/bsp/
 --- 01_wait_forever/src/bsp/raspberrypi/kernel.ld
 +++ 02_runtime_init/src/bsp/raspberrypi/kernel.ld
 @@ -3,6 +3,8 @@
-  * Copyright (c) 2018-2022 Andre Richter <andre.o.richter@gmail.com>
+  * Copyright (c) 2018-2023 Andre Richter <andre.o.richter@gmail.com>
   */
 
 +__rpi_phys_dram_start_addr = 0;

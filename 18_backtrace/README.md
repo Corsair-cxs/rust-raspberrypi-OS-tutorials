@@ -400,7 +400,7 @@ diff -uNr 17_kernel_symbols/kernel/src/_arch/aarch64/backtrace.rs 18_backtrace/k
 @@ -0,0 +1,136 @@
 +// SPDX-License-Identifier: MIT OR Apache-2.0
 +//
-+// Copyright (c) 2022 Andre Richter <andre.o.richter@gmail.com>
++// Copyright (c) 2022-2023 Andre Richter <andre.o.richter@gmail.com>
 +
 +//! Architectural backtracing support.
 +//!
@@ -415,7 +415,7 @@ diff -uNr 17_kernel_symbols/kernel/src/_arch/aarch64/backtrace.rs 18_backtrace/k
 +    backtrace::BacktraceItem,
 +    memory::{Address, Virtual},
 +};
-+use cortex_a::registers::*;
++use aarch64_cpu::registers::*;
 +use tock_registers::interfaces::Readable;
 +
 +//--------------------------------------------------------------------------------------------------
@@ -538,18 +538,18 @@ diff -uNr 17_kernel_symbols/kernel/src/_arch/aarch64/backtrace.rs 18_backtrace/k
 diff -uNr 17_kernel_symbols/kernel/src/_arch/aarch64/cpu/boot.rs 18_backtrace/kernel/src/_arch/aarch64/cpu/boot.rs
 --- 17_kernel_symbols/kernel/src/_arch/aarch64/cpu/boot.rs
 +++ 18_backtrace/kernel/src/_arch/aarch64/cpu/boot.rs
-@@ -12,7 +12,10 @@
- //! crate::cpu::boot::arch_boot
+@@ -13,7 +13,10 @@
 
  use crate::{memory, memory::Address};
+ use aarch64_cpu::{asm, registers::*};
 -use core::arch::global_asm;
 +use core::{
 +    arch::global_asm,
 +    sync::atomic::{compiler_fence, Ordering},
 +};
- use cortex_a::{asm, registers::*};
  use tock_registers::interfaces::Writeable;
 
+ // Assembly counterpart to this file.
 @@ -67,6 +70,18 @@
      SP_EL1.set(virt_boot_core_stack_end_exclusive_addr);
  }
@@ -728,7 +728,7 @@ diff -uNr 17_kernel_symbols/kernel/src/backtrace.rs 18_backtrace/kernel/src/back
 @@ -0,0 +1,114 @@
 +// SPDX-License-Identifier: MIT OR Apache-2.0
 +//
-+// Copyright (c) 2022 Andre Richter <andre.o.richter@gmail.com>
++// Copyright (c) 2022-2023 Andre Richter <andre.o.richter@gmail.com>
 +
 +//! Backtracing support.
 +
@@ -909,7 +909,7 @@ diff -uNr 17_kernel_symbols/kernel/src/bsp/raspberrypi/memory/mmu.rs 18_backtrac
 diff -uNr 17_kernel_symbols/kernel/src/lib.rs 18_backtrace/kernel/src/lib.rs
 --- 17_kernel_symbols/kernel/src/lib.rs
 +++ 18_backtrace/kernel/src/lib.rs
-@@ -130,6 +130,7 @@
+@@ -133,6 +133,7 @@
  mod panic_wait;
  mod synchronization;
 
@@ -972,7 +972,7 @@ diff -uNr 17_kernel_symbols/kernel/src/panic_wait.rs 18_backtrace/kernel/src/pan
  use core::panic::PanicInfo;
 
  //--------------------------------------------------------------------------------------------------
-@@ -75,6 +75,7 @@
+@@ -73,6 +73,7 @@
      println!(
          "[  {:>3}.{:06}] Kernel panic!\n\n\
          Panic location:\n      File '{}', line {}, column {}\n\n\
@@ -980,7 +980,7 @@ diff -uNr 17_kernel_symbols/kernel/src/panic_wait.rs 18_backtrace/kernel/src/pan
          {}",
          timestamp.as_secs(),
          timestamp.subsec_micros(),
-@@ -82,6 +83,7 @@
+@@ -80,6 +81,7 @@
          line,
          column,
          info.message().unwrap_or(&format_args!("")),
@@ -988,6 +988,19 @@ diff -uNr 17_kernel_symbols/kernel/src/panic_wait.rs 18_backtrace/kernel/src/pan
      );
 
      _panic_exit()
+
+diff -uNr 17_kernel_symbols/kernel/src/state.rs 18_backtrace/kernel/src/state.rs
+--- 17_kernel_symbols/kernel/src/state.rs
++++ 18_backtrace/kernel/src/state.rs
+@@ -52,7 +52,7 @@
+     const SINGLE_CORE_MAIN: u8 = 1;
+     const MULTI_CORE_MAIN: u8 = 2;
+
+-    /// Create a new instance.
++    /// Create an instance.
+     pub const fn new() -> Self {
+         Self(AtomicU8::new(Self::INIT))
+     }
 
 diff -uNr 17_kernel_symbols/kernel/tests/05_backtrace_sanity.rb 18_backtrace/kernel/tests/05_backtrace_sanity.rb
 --- 17_kernel_symbols/kernel/tests/05_backtrace_sanity.rb
@@ -997,7 +1010,7 @@ diff -uNr 17_kernel_symbols/kernel/tests/05_backtrace_sanity.rb 18_backtrace/ker
 +
 +# SPDX-License-Identifier: MIT OR Apache-2.0
 +#
-+# Copyright (c) 2022 Andre Richter <andre.o.richter@gmail.com>
++# Copyright (c) 2022-2023 Andre Richter <andre.o.richter@gmail.com>
 +
 +require 'console_io_test'
 +
@@ -1036,10 +1049,10 @@ diff -uNr 17_kernel_symbols/kernel/tests/05_backtrace_sanity.rb 18_backtrace/ker
 diff -uNr 17_kernel_symbols/kernel/tests/05_backtrace_sanity.rs 18_backtrace/kernel/tests/05_backtrace_sanity.rs
 --- 17_kernel_symbols/kernel/tests/05_backtrace_sanity.rs
 +++ 18_backtrace/kernel/tests/05_backtrace_sanity.rs
-@@ -0,0 +1,33 @@
+@@ -0,0 +1,31 @@
 +// SPDX-License-Identifier: MIT OR Apache-2.0
 +//
-+// Copyright (c) 2022 Andre Richter <andre.o.richter@gmail.com>
++// Copyright (c) 2022-2023 Andre Richter <andre.o.richter@gmail.com>
 +
 +//! Test if backtracing code detects an invalid frame pointer.
 +
@@ -1050,7 +1063,7 @@ diff -uNr 17_kernel_symbols/kernel/tests/05_backtrace_sanity.rs 18_backtrace/ker
 +/// Console tests should time out on the I/O harness in case of panic.
 +mod panic_wait_forever;
 +
-+use libkernel::{bsp, cpu, driver, exception, memory};
++use libkernel::{bsp, cpu, exception, memory};
 +
 +#[inline(never)]
 +fn nested() {
@@ -1059,11 +1072,9 @@ diff -uNr 17_kernel_symbols/kernel/tests/05_backtrace_sanity.rs 18_backtrace/ker
 +
 +#[no_mangle]
 +unsafe fn kernel_init() -> ! {
-+    use driver::interface::DriverManager;
-+
 +    exception::handling_init();
 +    memory::init();
-+    bsp::driver::driver_manager().qemu_bring_up_console();
++    bsp::driver::qemu_bring_up_console();
 +
 +    nested();
 +
@@ -1079,7 +1090,7 @@ diff -uNr 17_kernel_symbols/kernel/tests/06_backtrace_invalid_frame.rb 18_backtr
 +
 +# SPDX-License-Identifier: MIT OR Apache-2.0
 +#
-+# Copyright (c) 2022 Andre Richter <andre.o.richter@gmail.com>
++# Copyright (c) 2022-2023 Andre Richter <andre.o.richter@gmail.com>
 +
 +require 'console_io_test'
 +
@@ -1105,10 +1116,10 @@ diff -uNr 17_kernel_symbols/kernel/tests/06_backtrace_invalid_frame.rb 18_backtr
 diff -uNr 17_kernel_symbols/kernel/tests/06_backtrace_invalid_frame.rs 18_backtrace/kernel/tests/06_backtrace_invalid_frame.rs
 --- 17_kernel_symbols/kernel/tests/06_backtrace_invalid_frame.rs
 +++ 18_backtrace/kernel/tests/06_backtrace_invalid_frame.rs
-@@ -0,0 +1,35 @@
+@@ -0,0 +1,33 @@
 +// SPDX-License-Identifier: MIT OR Apache-2.0
 +//
-+// Copyright (c) 2022 Andre Richter <andre.o.richter@gmail.com>
++// Copyright (c) 2022-2023 Andre Richter <andre.o.richter@gmail.com>
 +
 +//! Test if backtracing code detects an invalid frame pointer.
 +
@@ -1119,7 +1130,7 @@ diff -uNr 17_kernel_symbols/kernel/tests/06_backtrace_invalid_frame.rs 18_backtr
 +/// Console tests should time out on the I/O harness in case of panic.
 +mod panic_wait_forever;
 +
-+use libkernel::{backtrace, bsp, cpu, driver, exception, memory};
++use libkernel::{backtrace, bsp, cpu, exception, memory};
 +
 +#[inline(never)]
 +fn nested() {
@@ -1130,11 +1141,9 @@ diff -uNr 17_kernel_symbols/kernel/tests/06_backtrace_invalid_frame.rs 18_backtr
 +
 +#[no_mangle]
 +unsafe fn kernel_init() -> ! {
-+    use driver::interface::DriverManager;
-+
 +    exception::handling_init();
 +    memory::init();
-+    bsp::driver::driver_manager().qemu_bring_up_console();
++    bsp::driver::qemu_bring_up_console();
 +
 +    nested();
 +
@@ -1150,7 +1159,7 @@ diff -uNr 17_kernel_symbols/kernel/tests/07_backtrace_invalid_link.rb 18_backtra
 +
 +# SPDX-License-Identifier: MIT OR Apache-2.0
 +#
-+# Copyright (c) 2022 Andre Richter <andre.o.richter@gmail.com>
++# Copyright (c) 2022-2023 Andre Richter <andre.o.richter@gmail.com>
 +
 +require 'console_io_test'
 +
@@ -1175,10 +1184,10 @@ diff -uNr 17_kernel_symbols/kernel/tests/07_backtrace_invalid_link.rb 18_backtra
 diff -uNr 17_kernel_symbols/kernel/tests/07_backtrace_invalid_link.rs 18_backtrace/kernel/tests/07_backtrace_invalid_link.rs
 --- 17_kernel_symbols/kernel/tests/07_backtrace_invalid_link.rs
 +++ 18_backtrace/kernel/tests/07_backtrace_invalid_link.rs
-@@ -0,0 +1,40 @@
+@@ -0,0 +1,38 @@
 +// SPDX-License-Identifier: MIT OR Apache-2.0
 +//
-+// Copyright (c) 2022 Andre Richter <andre.o.richter@gmail.com>
++// Copyright (c) 2022-2023 Andre Richter <andre.o.richter@gmail.com>
 +
 +//! Test if backtracing code detects an invalid link.
 +
@@ -1189,7 +1198,7 @@ diff -uNr 17_kernel_symbols/kernel/tests/07_backtrace_invalid_link.rs 18_backtra
 +/// Console tests should time out on the I/O harness in case of panic.
 +mod panic_wait_forever;
 +
-+use libkernel::{backtrace, bsp, cpu, driver, exception, memory};
++use libkernel::{backtrace, bsp, cpu, exception, memory};
 +
 +#[inline(never)]
 +fn nested_2() -> &'static str {
@@ -1205,11 +1214,9 @@ diff -uNr 17_kernel_symbols/kernel/tests/07_backtrace_invalid_link.rs 18_backtra
 +
 +#[no_mangle]
 +unsafe fn kernel_init() -> ! {
-+    use driver::interface::DriverManager;
-+
 +    exception::handling_init();
 +    memory::init();
-+    bsp::driver::driver_manager().qemu_bring_up_console();
++    bsp::driver::qemu_bring_up_console();
 +
 +    nested_1();
 +
@@ -1220,7 +1227,7 @@ diff -uNr 17_kernel_symbols/kernel/tests/07_backtrace_invalid_link.rs 18_backtra
 diff -uNr 17_kernel_symbols/Makefile 18_backtrace/Makefile
 --- 17_kernel_symbols/Makefile
 +++ 18_backtrace/Makefile
-@@ -42,7 +42,7 @@
+@@ -43,7 +43,7 @@
      OPENOCD_ARG       = -f /openocd/tcl/interface/ftdi/olimex-arm-usb-tiny-h.cfg -f /openocd/rpi3.cfg
      JTAG_BOOT_IMAGE   = ../X1_JTAG_boot/jtag_boot_rpi3.img
      LD_SCRIPT_PATH    = $(shell pwd)/kernel/src/bsp/raspberrypi
@@ -1229,7 +1236,7 @@ diff -uNr 17_kernel_symbols/Makefile 18_backtrace/Makefile
  else ifeq ($(BSP),rpi4)
      TARGET            = aarch64-unknown-none-softfloat
      KERNEL_BIN        = kernel8.img
-@@ -56,7 +56,7 @@
+@@ -57,7 +57,7 @@
      OPENOCD_ARG       = -f /openocd/tcl/interface/ftdi/olimex-arm-usb-tiny-h.cfg -f /openocd/rpi4.cfg
      JTAG_BOOT_IMAGE   = ../X1_JTAG_boot/jtag_boot_rpi4.img
      LD_SCRIPT_PATH    = $(shell pwd)/kernel/src/bsp/raspberrypi
@@ -1238,7 +1245,7 @@ diff -uNr 17_kernel_symbols/Makefile 18_backtrace/Makefile
  endif
 
  # Export for build.rs.
-@@ -121,10 +121,12 @@
+@@ -122,10 +122,12 @@
      $(FEATURES)                    \
      --release
 

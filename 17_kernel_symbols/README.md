@@ -168,13 +168,18 @@ fn kernel_symbol_section_virt_start_addr() -> Address<Virtual> {
     Address::new(unsafe { __kernel_symbols_start.get() as usize })
 }
 
+fn num_kernel_symbols() -> usize {
+    unsafe {
+        // Read volatile is needed here to prevent the compiler from optimizing NUM_KERNEL_SYMBOLS
+        // away.
+        core::ptr::read_volatile(&NUM_KERNEL_SYMBOLS as *const u64) as usize
+    }
+}
+
 fn kernel_symbols_slice() -> &'static [Symbol] {
     let ptr = kernel_symbol_section_virt_start_addr().as_usize() as *const Symbol;
 
-    unsafe {
-        let num = core::ptr::read_volatile(&NUM_KERNEL_SYMBOLS as *const u64) as usize;
-        slice::from_raw_parts(ptr, num)
-    }
+    unsafe { slice::from_raw_parts(ptr, num_kernel_symbols()) }
 }
 ```
 
@@ -256,7 +261,7 @@ diff -uNr 16_virtual_mem_part4_higher_half_kernel/kernel/Cargo.toml 17_kernel_sy
 +debug-symbol-types = { path = "../libraries/debug-symbol-types" }
 
  # Optional dependencies
- tock-registers = { version = "0.7.x", default-features = false, features = ["register_types"], optional = true }
+ tock-registers = { version = "0.8.x", default-features = false, features = ["register_types"], optional = true }
 
 diff -uNr 16_virtual_mem_part4_higher_half_kernel/kernel/src/_arch/aarch64/exception.rs 17_kernel_symbols/kernel/src/_arch/aarch64/exception.rs
 --- 16_virtual_mem_part4_higher_half_kernel/kernel/src/_arch/aarch64/exception.rs
@@ -267,8 +272,8 @@ diff -uNr 16_virtual_mem_part4_higher_half_kernel/kernel/src/_arch/aarch64/excep
 
 -use crate::exception;
 +use crate::{exception, memory, symbols};
+ use aarch64_cpu::{asm::barrier, registers::*};
  use core::{arch::global_asm, cell::UnsafeCell, fmt};
- use cortex_a::{asm::barrier, registers::*};
  use tock_registers::{
 @@ -260,6 +260,14 @@
 
@@ -326,7 +331,7 @@ diff -uNr 16_virtual_mem_part4_higher_half_kernel/kernel/src/bsp/raspberrypi/mem
 diff -uNr 16_virtual_mem_part4_higher_half_kernel/kernel/src/lib.rs 17_kernel_symbols/kernel/src/lib.rs
 --- 16_virtual_mem_part4_higher_half_kernel/kernel/src/lib.rs
 +++ 17_kernel_symbols/kernel/src/lib.rs
-@@ -139,6 +139,7 @@
+@@ -142,6 +142,7 @@
  pub mod memory;
  pub mod print;
  pub mod state;
@@ -338,10 +343,10 @@ diff -uNr 16_virtual_mem_part4_higher_half_kernel/kernel/src/lib.rs 17_kernel_sy
 diff -uNr 16_virtual_mem_part4_higher_half_kernel/kernel/src/symbols.rs 17_kernel_symbols/kernel/src/symbols.rs
 --- 16_virtual_mem_part4_higher_half_kernel/kernel/src/symbols.rs
 +++ 17_kernel_symbols/kernel/src/symbols.rs
-@@ -0,0 +1,83 @@
+@@ -0,0 +1,88 @@
 +// SPDX-License-Identifier: MIT OR Apache-2.0
 +//
-+// Copyright (c) 2022 Andre Richter <andre.o.richter@gmail.com>
++// Copyright (c) 2022-2023 Andre Richter <andre.o.richter@gmail.com>
 +
 +//! Debug symbol support.
 +
@@ -375,13 +380,18 @@ diff -uNr 16_virtual_mem_part4_higher_half_kernel/kernel/src/symbols.rs 17_kerne
 +    Address::new(unsafe { __kernel_symbols_start.get() as usize })
 +}
 +
++fn num_kernel_symbols() -> usize {
++    unsafe {
++        // Read volatile is needed here to prevent the compiler from optimizing NUM_KERNEL_SYMBOLS
++        // away.
++        core::ptr::read_volatile(&NUM_KERNEL_SYMBOLS as *const u64) as usize
++    }
++}
++
 +fn kernel_symbols_slice() -> &'static [Symbol] {
 +    let ptr = kernel_symbol_section_virt_start_addr().as_usize() as *const Symbol;
 +
-+    unsafe {
-+        let num = core::ptr::read_volatile(&NUM_KERNEL_SYMBOLS as *const u64) as usize;
-+        slice::from_raw_parts(ptr, num)
-+    }
++    unsafe { slice::from_raw_parts(ptr, num_kernel_symbols()) }
 +}
 +
 +//--------------------------------------------------------------------------------------------------
@@ -468,7 +478,7 @@ diff -uNr 16_virtual_mem_part4_higher_half_kernel/kernel_symbols/kernel_symbols.
 @@ -0,0 +1,15 @@
 +/* SPDX-License-Identifier: MIT OR Apache-2.0
 + *
-+ * Copyright (c) 2022 Andre Richter <andre.o.richter@gmail.com>
++ * Copyright (c) 2022-2023 Andre Richter <andre.o.richter@gmail.com>
 + */
 +
 +SECTIONS
@@ -488,7 +498,7 @@ diff -uNr 16_virtual_mem_part4_higher_half_kernel/kernel_symbols/src/main.rs 17_
 @@ -0,0 +1,16 @@
 +// SPDX-License-Identifier: MIT OR Apache-2.0
 +//
-+// Copyright (c) 2022 Andre Richter <andre.o.richter@gmail.com>
++// Copyright (c) 2022-2023 Andre Richter <andre.o.richter@gmail.com>
 +
 +//! Generation of kernel symbols.
 +
@@ -506,10 +516,10 @@ diff -uNr 16_virtual_mem_part4_higher_half_kernel/kernel_symbols/src/main.rs 17_
 diff -uNr 16_virtual_mem_part4_higher_half_kernel/kernel_symbols.mk 17_kernel_symbols/kernel_symbols.mk
 --- 16_virtual_mem_part4_higher_half_kernel/kernel_symbols.mk
 +++ 17_kernel_symbols/kernel_symbols.mk
-@@ -0,0 +1,103 @@
+@@ -0,0 +1,117 @@
 +## SPDX-License-Identifier: MIT OR Apache-2.0
 +##
-+## Copyright (c) 2018-2022 Andre Richter <andre.o.richter@gmail.com>
++## Copyright (c) 2018-2023 Andre Richter <andre.o.richter@gmail.com>
 +
 +include ../common/format.mk
 +include ../common/docker.mk
@@ -588,9 +598,11 @@ diff -uNr 16_virtual_mem_part4_higher_half_kernel/kernel_symbols.mk 17_kernel_sy
 +##--------------------------------------------------------------------------------------------------
 +## Targets
 +##--------------------------------------------------------------------------------------------------
-+.PHONY: all
++.PHONY: all symbols measure_time_start measure_time_finish
 +
-+all:
++all: measure_time_start symbols measure_time_finish
++
++symbols:
 +	@cp $(KERNEL_SYMBOLS_INPUT_ELF) $(KERNEL_SYMBOLS_OUTPUT_ELF)
 +
 +	@$(DOCKER_TOOLS) $(EXEC_SYMBOLS_TOOL) --gen_symbols $(KERNEL_SYMBOLS_OUTPUT_ELF) \
@@ -609,7 +621,19 @@ diff -uNr 16_virtual_mem_part4_higher_half_kernel/kernel_symbols.mk 17_kernel_sy
 +	@$(DOCKER_TOOLS) $(EXEC_SYMBOLS_TOOL) --patch_data $(KERNEL_SYMBOLS_OUTPUT_ELF) \
 +                $(KERNEL_SYMBOLS_STRIPPED)
 +
++# Note: The following is the only _trivial_ way I could think of that works out of the box on both
++# Linux and macOS. Since macOS does not have the moduloN nanosecond format string option, the
++# resolution is restricted to whole seconds.
++measure_time_start:
++	@date +modulos > /tmp/kernel_symbols_start.date
++
++measure_time_finish:
++	@date +modulos > /tmp/kernel_symbols_end.date
++
 +	$(call color_progress_prefix, "Finished")
++	@echo "in $$((`cat /tmp/kernel_symbols_end.date` - `cat /tmp/kernel_symbols_start.date`)).0s"
++
++	@rm /tmp/kernel_symbols_end.date /tmp/kernel_symbols_start.date
 
 diff -uNr 16_virtual_mem_part4_higher_half_kernel/libraries/debug-symbol-types/Cargo.toml 17_kernel_symbols/libraries/debug-symbol-types/Cargo.toml
 --- 16_virtual_mem_part4_higher_half_kernel/libraries/debug-symbol-types/Cargo.toml
@@ -626,7 +650,7 @@ diff -uNr 16_virtual_mem_part4_higher_half_kernel/libraries/debug-symbol-types/s
 @@ -0,0 +1,45 @@
 +// SPDX-License-Identifier: MIT OR Apache-2.0
 +//
-+// Copyright (c) 2022 Andre Richter <andre.o.richter@gmail.com>
++// Copyright (c) 2022-2023 Andre Richter <andre.o.richter@gmail.com>
 +
 +//! Types for implementing debug symbol support.
 +
@@ -673,7 +697,7 @@ diff -uNr 16_virtual_mem_part4_higher_half_kernel/libraries/debug-symbol-types/s
 diff -uNr 16_virtual_mem_part4_higher_half_kernel/Makefile 17_kernel_symbols/Makefile
 --- 16_virtual_mem_part4_higher_half_kernel/Makefile
 +++ 17_kernel_symbols/Makefile
-@@ -84,7 +84,24 @@
+@@ -85,7 +85,24 @@
  KERNEL_ELF_TTABLES      = target/$(TARGET)/release/kernel+ttables
  KERNEL_ELF_TTABLES_DEPS = $(KERNEL_ELF_RAW) $(wildcard $(TT_TOOL_PATH)/*)
 
@@ -699,7 +723,7 @@ diff -uNr 16_virtual_mem_part4_higher_half_kernel/Makefile 17_kernel_symbols/Mak
 
 
 
-@@ -177,11 +194,19 @@
+@@ -178,11 +195,18 @@
  	@$(DOCKER_TOOLS) $(EXEC_TT_TOOL) $(BSP) $(KERNEL_ELF_TTABLES)
 
  ##------------------------------------------------------------------------------
@@ -707,8 +731,7 @@ diff -uNr 16_virtual_mem_part4_higher_half_kernel/Makefile 17_kernel_symbols/Mak
 +##------------------------------------------------------------------------------
 +$(KERNEL_ELF_TTABLES_SYMS): $(KERNEL_ELF_TTABLES_SYMS_DEPS)
 +	$(call color_header, "Generating kernel symbols and patching kernel ELF")
-+	@time -f "in moduloes" \
-+                $(MAKE) --no-print-directory -f kernel_symbols.mk
++	@$(MAKE) --no-print-directory -f kernel_symbols.mk
 +
 +##------------------------------------------------------------------------------
  ## Generate the stripped kernel binary
@@ -721,7 +744,7 @@ diff -uNr 16_virtual_mem_part4_higher_half_kernel/Makefile 17_kernel_symbols/Mak
  	$(call color_progress_prefix, "Name")
  	@echo $(KERNEL_BIN)
  	$(call color_progress_prefix, "Size")
-@@ -190,7 +215,7 @@
+@@ -191,7 +215,7 @@
  ##------------------------------------------------------------------------------
  ## Generate the documentation
  ##------------------------------------------------------------------------------
@@ -730,7 +753,7 @@ diff -uNr 16_virtual_mem_part4_higher_half_kernel/Makefile 17_kernel_symbols/Mak
  	$(call color_header, "Generating docs")
  	@$(DOC_CMD) --document-private-items --open
 
-@@ -317,10 +342,19 @@
+@@ -318,10 +342,19 @@
      cd $(shell pwd)
 
      TEST_ELF=$$(echo $$1 | sed -e 's/.*target/target/g')
@@ -760,7 +783,7 @@ diff -uNr 16_virtual_mem_part4_higher_half_kernel/tools/kernel_symbols_tool/cmds
 +
 +# SPDX-License-Identifier: MIT OR Apache-2.0
 +#
-+# Copyright (c) 2022 Andre Richter <andre.o.richter@gmail.com>
++# Copyright (c) 2022-2023 Andre Richter <andre.o.richter@gmail.com>
 +
 +def generate_symbols(kernel_elf, output_file)
 +    File.open(output_file, 'w') do |file|
@@ -810,7 +833,7 @@ diff -uNr 16_virtual_mem_part4_higher_half_kernel/tools/kernel_symbols_tool/kern
 +
 +# SPDX-License-Identifier: MIT OR Apache-2.0
 +#
-+# Copyright (c) 2021-2022 Andre Richter <andre.o.richter@gmail.com>
++# Copyright (c) 2021-2023 Andre Richter <andre.o.richter@gmail.com>
 +
 +# KernelELF
 +class KernelELF
@@ -890,7 +913,7 @@ diff -uNr 16_virtual_mem_part4_higher_half_kernel/tools/kernel_symbols_tool/main
 +
 +# SPDX-License-Identifier: MIT OR Apache-2.0
 +#
-+# Copyright (c) 2022 Andre Richter <andre.o.richter@gmail.com>
++# Copyright (c) 2022-2023 Andre Richter <andre.o.richter@gmail.com>
 +
 +require 'rubygems'
 +require 'bundler/setup'
